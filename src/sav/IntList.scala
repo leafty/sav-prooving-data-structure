@@ -34,29 +34,44 @@ object obj {
   }
   
   def contains(l: IntList, x: Int): Boolean = (l match {
-    case Nil => false
+    case Nil                  => false
     case Cons(y, t) if x == y => true
-    case Cons(_, t) => contains(t, x)
+    case Cons(_, t)           => contains(t, x)
   })
-  
+
   def get(l: IntList, n: Int): Int = ({
-    require(n < size(l) && n >= 0)
-    
+    require(0 <= n && n < size(l))
+
     l match {
       case Cons(x, t) if n == 0 => x
-      case Cons(_, t) => get(t, n - 1)
+      case Cons(_, t)           => get(t, n - 1)
     }
-  }) ensuring(x => contains(l, x))
+  }) ensuring (x => contains(l, x))
 
   def size(l: IntList): Int = (l match {
     case Nil        => 0
     case Cons(_, t) => 1 + size(t)
   }) ensuring (size => size >= 0)
 
+  def isPrefix(p: IntList, l: IntList): Boolean = {
+    val (p2, l2) = unzip(zip(p, l))
+    p == p2 && p == l2
+  }
+
+  def drop(l: IntList, n: Int): IntList = ({
+    require(n >= 0)
+
+    l match {
+      case Cons(x, t) if n > 0 => drop(t, n - 1)
+      case Nil if n > 0        => Nil
+      case _ if n == 0         => l
+    }
+  }) ensuring (res => size(res) == max(0, size(l) - n))
+
   def concat(l1: IntList, l2: IntList): IntList = (l1 match {
     case Nil        => l2
     case Cons(x, t) => Cons(x, concat(t, l2))
-  }) ensuring (l => size(l) == size(l1) + size(l2))
+  }) ensuring (l => size(l) == size(l1) + size(l2) && isPrefix(l1, l) && drop(l, size(l1)) == l2)
 
   def isEmpty2(l: IntPairList) = l match {
     case Nil2 => true
