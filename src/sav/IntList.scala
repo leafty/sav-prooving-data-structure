@@ -32,6 +32,21 @@ object obj {
     case Nil        => error("tail of emtpy list")
     case Cons(x, t) => t
   }
+  
+  def contains(l: IntList, x: Int): Boolean = (l match {
+    case Nil => false
+    case Cons(y, t) if x == y => true
+    case Cons(_, t) => contains(t, x)
+  })
+  
+  def get(l: IntList, n: Int): Int = ({
+    require(n < size(l) && n >= 0)
+    
+    l match {
+      case Cons(x, t) if n == 0 => x
+      case Cons(_, t) => get(t, n - 1)
+    }
+  }) ensuring(x => contains(l, x))
 
   def size(l: IntList): Int = (l match {
     case Nil        => 0
