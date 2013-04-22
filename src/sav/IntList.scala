@@ -121,4 +121,24 @@ object obj {
       val (t1, t2) = unzip(t)
       (Cons(x1, t1), Cons(x2, t2))
   }) ensuring (p => size(p._1) == size2(l) && size(p._2) == size2(l))
+  
+  def isLowerBound(l: IntList, x: Int): Boolean = (l match {
+    case Nil => true
+    case Cons(y, t) if x > y => false
+    case Cons(_, t) => isLowerBound(t, x)
+  })
+  
+  def minList1(l: IntList, x: Int): Int = (l match {
+    case Nil => x
+    case Cons(y, t) if y < x => minList1(t, y)
+    case Cons(_, t) => minList1(t, x)
+  }) ensuring (res => isLowerBound(l, res) && res <= x && (res == x || contains(l, res)))
+  
+  def minList(l: IntList, x: Int): Int = {
+    require(size(l) > 0)
+    
+    l match {
+      case Cons(x, t) => minList1(t, x)
+    }
+  } ensuring (res => isLowerBound(l, res) && contains(l, res))
 }
