@@ -1,7 +1,6 @@
 import leon.Utils._
 
 object obj {
-
    sealed abstract class IntList
    case object Nil extends IntList
    case class Cons(hd: Int, tl: IntList) extends IntList
@@ -152,10 +151,41 @@ object obj {
       case (Cons(x1, t1), Cons(x2, t2)) => Cons2((x1, x2), zip(t1, t2))
    }) ensuring (l => size2(l) == min(size(l1), size(l2)))
 
+   def zipWithAll(l1: IntList, l2: IntList, d1: Int, d2: Int): IntPairList = ({
+    def innerZip(l1: IntList, l2: IntList): IntPairList = ((l1, l2) match {
+      case (Nil, Nil)                   => Nil2
+      case (Nil, Cons(x2, t2))          => Cons2((d1, x2), innerZip(Nil, t2))
+      case (Cons(x1, t1), Nil)          => Cons2((x1, d2), innerZip(t1, Nil))
+      case (Cons(x1, t1), Cons(x2, t2)) => Cons2((x1, x2), innerZip(t1, t2))
+    }) ensuring (l => size2(l) == max(size(l1), size(l2)))
+
+    innerZip(l1, l2)
+  }) ensuring (l => size2(l) == max(size(l1), size(l2)))
+
    def unzip(l: IntPairList): (IntList, IntList) = (l match {
       case Nil2 => (Nil, Nil)
       case Cons2((x1, x2), t) =>
          val (t1, t2) = unzip(t)
          (Cons(x1, t1), Cons(x2, t2))
    }) ensuring (p => size(p._1) == size2(l) && size(p._2) == size2(l))
+
+   def isLowerBound(l: IntList, x: Int): Boolean = (l match {
+    case Nil => true
+    case Cons(y, t) if x > y => false
+    case Cons(_, t) => isLowerBound(t, x)
+  })
+  
+  def minList1(l: IntList, x: Int): Int = (l match {
+    case Nil => x
+    case Cons(y, t) if y < x => minList1(t, y)
+    case Cons(_, t) => minList1(t, x)
+  }) ensuring (res => isLowerBound(l, res) && res <= x && (res == x || contains(l, res)))
+  
+  def minList(l: IntList, x: Int): Int = {
+    require(size(l) > 0)
+    
+    l match {
+      case Cons(x, t) => minList1(t, x)
+    }
+  } ensuring (res => isLowerBound(l, res) && contains(l, res))
 }
