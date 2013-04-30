@@ -18,26 +18,31 @@ object obj {
       require(_isTotalIntBool(l, p))
 
       l match {
-         case Nil                        => true
-         case Cons(x, t) if mapGet(p, x) => forall(t, p)
-         case _                          => false
+         case Nil                     => true
+         case Cons(x, t) if get(p, x) => forall(t, p)
+         case _                       => false
       }
    }
 
-   def map(l: IntList, f: IntPairList): IntList = {
+   def isEmpty(l: IntList) = (l match {
+      case Nil => true
+      case _   => false
+   }) ensuring (res => (res && l == Nil) || (!res && l.isInstanceOf[Cons]))
+
+   def map(l: IntList, f: IntIntMap): IntList = {
       require(_isTotalIntInt(l, f))
       l match {
          case Nil        => Nil
-         case Cons(x, t) => Cons(mapGet(f, x), map(t, f))
+         case Cons(x, t) => Cons(get(f, x), map(t, f))
       }
    } ensuring (res => size(l) == size(res))
 
    def filter(l: IntList, p: IntBoolMap): IntList = {
       require(_isTotalIntBool(l, p))
       l match {
-         case Nil                        => Nil
-         case Cons(x, t) if mapGet(p, x) => Cons(x, filter(t, p))
-         case Cons(_, t)                 => filter(t, p)
+         case Nil                     => Nil
+         case Cons(x, t) if get(p, x) => Cons(x, filter(t, p))
+         case Cons(_, t)              => filter(t, p)
       }
    } ensuring (res => size(res) <= size(l) && _isTotalIntBool(res, p) && forall(res, p))
 
@@ -45,11 +50,33 @@ object obj {
       require(_isTotalIntBool(l, p))
 
       l match {
-         case Nil                        => false
-         case Cons(x, t) if mapGet(p, x) => true
-         case Cons(_, t)                 => exists(t, p)
+         case Nil                     => false
+         case Cons(x, t) if get(p, x) => true
+         case Cons(_, t)              => exists(t, p)
       }
    }
+
+   def drop(l: IntList, n: Int): IntList = {
+      require(n >= 0)
+      l match {
+         case Cons(x, t) if n > 0 => drop(t, n - 1)
+         case Nil if n > 0        => Nil
+         case _ if n == 0         => l
+      }
+   } ensuring (res => size(res) == _maxInt(0, size(l) - n))
+
+   def take(l: IntList, n: Int): IntList = {
+      require(n >= 0)
+      l match {
+         case Cons(x, t) if n > 0 => Cons(x, take(t, n - 1))
+         case _                   => Nil
+      }
+   } ensuring (res => size(res) == _minInt(n, size(l)))
+
+   def concat(l1: IntList, l2: IntList): IntList = (l1 match {
+      case Nil        => l2
+      case Cons(x, t) => Cons(x, concat(t, l2))
+   }) ensuring (res => size(res) == size(l1) + size(l2) && _isPrefix(l1, res) && drop(res, size(l1)) == l2)
 
    def min(l: IntList): Int = {
       require(size(l) > 0)
@@ -63,23 +90,60 @@ object obj {
    //
    // INT PAIR LIST
    //
-   sealed abstract class IntPairList
-   case object Nil2 extends IntPairList
-   case class Cons2(hd: (Int, Int), tl: IntPairList) extends IntPairList
+   sealed abstract class IntIntMap
+   case object NilIntIntMap extends IntIntMap
+   case class ConsIntIntMap(hd: (Int, Int), tl: IntIntMap) extends IntIntMap
 
-   def isDefinedAt(p: IntPairList, x: Int): Boolean = (p match {
-      case Nil2                       => false
-      case Cons2((y, _), _) if x == y => true
-      case Cons2(_, t)                => isDefinedAt(t, x)
+   def isDefinedAt(p: IntIntMap, x: Int): Boolean = (p match {
+      case NilIntIntMap                       => false
+      case ConsIntIntMap((y, _), _) if x == y => true
+      case ConsIntIntMap(_, t)                => isDefinedAt(t, x)
    })
 
-   def mapGet(p: IntPairList, x: Int): Int = {
+   def get(p: IntIntMap, x: Int): Int = {
       require(isDefinedAt(p, x))
       p match {
-         case Cons2((y, z), _) if x == y => z
-         case Cons2(_, t)                => mapGet(t, x)
+         case ConsIntIntMap((y, z), _) if x == y => z
+         case ConsIntIntMap(_, t)                => get(t, x)
       }
    }
+
+   def getOption(f: IntIntMap, x: Int): OptionInt = {
+      (f match {
+         case NilIntIntMap                       => NoneInt
+         case ConsIntIntMap((y, z), _) if x == y => SomeInt(z)
+         case ConsIntIntMap(_, t)                => getOption(t, x)
+      })
+   } ensuring (res => (res == NoneInt && !isDefinedAt(f, x)) || (res.isInstanceOf[SomeInt] && isDefinedAt(f, x) && equal(res, get(f, x))))
+
+   //
+   // INT BOOL MAP 
+   //
+   sealed abstract class IntBoolMap
+   case object NilIntBoolMap extends IntBoolMap
+   case class ConsIntBoolMap(hd: (Int, Boolean), tl: IntBoolMap) extends IntBoolMap
+
+   def isDefinedAt(p: IntBoolMap, x: Int): Boolean = (p match {
+      case NilIntBoolMap                       => false
+      case ConsIntBoolMap((y, _), _) if x == y => true
+      case ConsIntBoolMap(_, t)                => isDefinedAt(t, x)
+   })
+
+   def get(p: IntBoolMap, x: Int): Boolean = {
+      require(isDefinedAt(p, x))
+      p match {
+         case ConsIntBoolMap((y, b), _) if x == y => b
+         case ConsIntBoolMap(_, t)                => get(t, x)
+      }
+   }
+
+   def getOption(p: IntBoolMap, x: Int): OptionBool = {
+      (p match {
+         case NilIntBoolMap                       => NoneBool
+         case ConsIntBoolMap((y, b), _) if x == y => SomeBool(b)
+         case ConsIntBoolMap(_, t)                => getOption(t, x)
+      })
+   } ensuring (res => (res == NoneBool && !isDefinedAt(p, x)) || (res.isInstanceOf[SomeBool] && isDefinedAt(p, x) && equal(res, get(p, x))))
 
    //
    // OPTION BOOLEAN
@@ -88,44 +152,26 @@ object obj {
    case object NoneBool extends OptionBool
    case class SomeBool(bool: Boolean) extends OptionBool
 
-   def boolEqual(o: OptionBool, b: Boolean): Boolean = o match {
+   def equal(o: OptionBool, b: Boolean): Boolean = o match {
       case NoneBool     => false
-      case SomeBool(b2) => b2 == b
+      case SomeBool(b2) => b == b2
    }
 
    //
-   // INT BOOL MAP 
+   // OPTION INT
    //
-   sealed abstract class IntBoolMap
-   case object NilMap extends IntBoolMap
-   case class ConsMap(hd: (Int, Boolean), tl: IntBoolMap) extends IntBoolMap
+   sealed abstract class OptionInt
+   case object NoneInt extends OptionInt
+   case class SomeInt(n: Int) extends OptionInt
 
-   def isDefinedAt(p: IntBoolMap, x: Int): Boolean = (p match {
-      case NilMap                       => false
-      case ConsMap((y, _), _) if x == y => true
-      case ConsMap(_, t)                => isDefinedAt(t, x)
-   })
-
-   def mapGet(p: IntBoolMap, x: Int): Boolean = {
-      require(isDefinedAt(p, x))
-      p match {
-         case ConsMap((y, b), _) if x == y => b
-         case ConsMap(_, t)                => mapGet(t, x)
-      }
+   def equal(o: OptionInt, n: Int): Boolean = o match {
+      case NoneInt     => false
+      case SomeInt(n2) => n == n2
    }
 
-   def mapGetOption(p: IntBoolMap, x: Int): OptionBool = {
-      p match {
-         case NilMap                       => NoneBool
-         case ConsMap((y, b), _) if x == y => SomeBool(b)
-         case ConsMap(_, t)                => mapGetOption(t, x)
-      }
-   } ensuring (res => (res == NoneBool && !isDefinedAt(p, x)) || (res.isInstanceOf[SomeBool] && isDefinedAt(p, x) && boolEqual(res, mapGet(p, x))))
-
    //
-   // TO PUT IN CORRESPONDING SECTION
-   //
-   //
+   // UTILS
+   // 
 
    def _minInt(x: Int, y: Int): Int = {
       if (x <= y) x else y
@@ -134,11 +180,6 @@ object obj {
    def _maxInt(x: Int, y: Int): Int = {
       if (x >= y) x else y
    } ensuring (res => res >= x && res >= y && (res == x || res == y))
-
-   def isEmpty(l: IntList) = (l match {
-      case Nil => true
-      case _   => false
-   }) ensuring (res => (res && l == Nil) || (!res && l.isInstanceOf[Cons]))
 
    def head(l: IntList) = {
       l match {
@@ -158,7 +199,7 @@ object obj {
       case Cons(_, t)           => contains(t, x)
    })
 
-   def _isTotalIntInt(l: IntList, f: IntPairList): Boolean = (l match {
+   def _isTotalIntInt(l: IntList, f: IntIntMap): Boolean = (l match {
       case Nil                             => true
       case Cons(x, t) if isDefinedAt(f, x) => _isTotalIntInt(t, f)
       case _                               => false
@@ -184,69 +225,47 @@ object obj {
       l1 == ll1 && l1 == ll2
    }
 
-   def drop(l: IntList, n: Int): IntList = {
-      require(n >= 0)
-      l match {
-         case Cons(x, t) if n > 0 => drop(t, n - 1)
-         case Nil if n > 0        => Nil
-         case _ if n == 0         => l
-      }
-   } ensuring (res => size(res) == _maxInt(0, size(l) - n))
-
-   def take(l: IntList, n: Int): IntList = {
-      require(n >= 0)
-      l match {
-         case Cons(x, t) if n > 0 => Cons(x, take(t, n - 1))
-         case _                   => Nil
-      }
-   } ensuring (res => size(res) == _minInt(n, size(l)))
-
-   def concat(l1: IntList, l2: IntList): IntList = (l1 match {
-      case Nil        => l2
-      case Cons(x, t) => Cons(x, concat(t, l2))
-   }) ensuring (res => size(res) == size(l1) + size(l2) && _isPrefix(l1, res) && drop(res, size(l1)) == l2)
-
-   def isEmpty2(l: IntPairList) = l match {
-      case Nil2 => true
+   def isEmpty2(l: IntIntMap) = l match {
+      case NilIntIntMap => true
       case _    => false
    }
 
-   def head2(l: IntPairList) = l match {
-      case Nil2        => error("head of emtpy list")
-      case Cons2(x, t) => x
+   def head2(l: IntIntMap) = l match {
+      case NilIntIntMap        => error("head of emtpy list")
+      case ConsIntIntMap(x, t) => x
    }
 
-   def tail2(l: IntPairList) = l match {
-      case Nil2        => error("tail of emtpy list")
-      case Cons2(x, t) => t
+   def tail2(l: IntIntMap) = l match {
+      case NilIntIntMap        => error("tail of emtpy list")
+      case ConsIntIntMap(x, t) => t
    }
 
-   def size2(l: IntPairList): Int = (l match {
-      case Nil2        => 0
-      case Cons2(_, t) => 1 + size2(t)
-   }) ensuring (res => (res == 0 && l == Nil2) || (res > 0 && l.isInstanceOf[Cons2]))
+   def size2(l: IntIntMap): Int = (l match {
+      case NilIntIntMap        => 0
+      case ConsIntIntMap(_, t) => 1 + size2(t)
+   }) ensuring (res => (res == 0 && l == NilIntIntMap) || (res > 0 && l.isInstanceOf[ConsIntIntMap]))
 
-   def concat2(l1: IntPairList, l2: IntPairList): IntPairList = (l1 match {
-      case Nil2        => l2
-      case Cons2(x, t) => Cons2(x, concat2(t, l2))
+   def concat2(l1: IntIntMap, l2: IntIntMap): IntIntMap = (l1 match {
+      case NilIntIntMap        => l2
+      case ConsIntIntMap(x, t) => ConsIntIntMap(x, concat2(t, l2))
    }) ensuring (res => size2(res) == size2(l1) + size2(l2))
 
-   def zip(l1: IntList, l2: IntList): IntPairList = ((l1, l2) match {
-      case (Nil, _)                     => Nil2
-      case (_, Nil)                     => Nil2
-      case (Cons(x1, t1), Cons(x2, t2)) => Cons2((x1, x2), zip(t1, t2))
+   def zip(l1: IntList, l2: IntList): IntIntMap = ((l1, l2) match {
+      case (Nil, _)                     => NilIntIntMap
+      case (_, Nil)                     => NilIntIntMap
+      case (Cons(x1, t1), Cons(x2, t2)) => ConsIntIntMap((x1, x2), zip(t1, t2))
    }) ensuring (res => size2(res) == _minInt(size(l1), size(l2)))
 
-   def zipWithAll(l1: IntList, l2: IntList, x1: Int, x2: Int): IntPairList = ((l1, l2) match {
-      case (Nil, Nil)                   => Nil2
-      case (Cons(y1, t1), Nil)          => Cons2((y1, x2), zipWithAll(t1, Nil, x1, x2))
-      case (Nil, Cons(y2, t2))          => Cons2((x1, y2), zipWithAll(Nil, t2, x1, x2))
-      case (Cons(y1, t1), Cons(y2, t2)) => Cons2((y1, y2), zipWithAll(t1, t2, x1, x2))
+   def zipWithAll(l1: IntList, l2: IntList, x1: Int, x2: Int): IntIntMap = ((l1, l2) match {
+      case (Nil, Nil)                   => NilIntIntMap
+      case (Cons(y1, t1), Nil)          => ConsIntIntMap((y1, x2), zipWithAll(t1, Nil, x1, x2))
+      case (Nil, Cons(y2, t2))          => ConsIntIntMap((x1, y2), zipWithAll(Nil, t2, x1, x2))
+      case (Cons(y1, t1), Cons(y2, t2)) => ConsIntIntMap((y1, y2), zipWithAll(t1, t2, x1, x2))
    }) ensuring (res => size2(res) == _maxInt(size(l1), size(l2)))
 
-   def unzip(l: IntPairList): (IntList, IntList) = (l match {
-      case Nil2 => (Nil, Nil)
-      case Cons2((x1, x2), t) =>
+   def unzip(l: IntIntMap): (IntList, IntList) = (l match {
+      case NilIntIntMap => (Nil, Nil)
+      case ConsIntIntMap((x1, x2), t) =>
          val (t1, t2) = unzip(t)
          (Cons(x1, t1), Cons(x2, t2))
    }) ensuring (res => size(res._1) == size2(l) && size(res._2) == size2(l))
