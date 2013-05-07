@@ -73,6 +73,30 @@ object obj {
       }
    } ensuring (res => size(res) == _minInt(n, size(l)))
 
+   def head(l: IntList): Int = {
+      assume(size(l) > 0)
+      l match {
+         case Nil        => 0 // will never be the case
+         case Cons(x, t) => x
+      }
+   }
+
+   def last(l: IntList): Int = {
+      assume(size(l) > 0)
+      l match {
+         case Nil          => 0 // will never be the case
+         case Cons(x, Nil) => x
+         case Cons(x, t)   => last(t)
+      }
+   }
+
+   def append(l: IntList, x: Int): IntList = {
+      l match {
+         case Cons(x, t) => Cons(x, append(t, x))
+         case Nil        => Cons(x, Nil)
+      }
+   } ensuring (res => size(res) == size(l) + 1 && take(res, size(res) - 1) == l)
+
    def concat(l1: IntList, l2: IntList): IntList = (l1 match {
       case Nil        => l2
       case Cons(x, t) => Cons(x, concat(t, l2))
@@ -80,12 +104,83 @@ object obj {
 
    def min(l: IntList): Int = {
       require(size(l) > 0)
-
       l match {
          case Cons(x, t) => _min1(t, x)
          case Nil        => 0 // avoid match warning
       }
    } ensuring (res => _isLowerBound(l, res) && contains(l, res))
+
+   def _isPermutationOf(l1: IntList, l2: IntList): Boolean = {
+      sortAscending(l1) == sortAscending(l2)
+   }
+
+   def _hasAscendingOrder(l: IntList): Boolean = l match {
+      case Cons(x, t @ Cons(y, _)) => x <= y && _hasAscendingOrder(t)
+      case _                       => true
+   }
+
+   def _hasStrictAscendingOrder(l: IntList): Boolean = l match {
+      case Cons(x, t @ Cons(y, _)) => x < y && _hasStrictAscendingOrder(t)
+      case _                       => true
+   }
+
+   def _hasDescendingOrder(l: IntList): Boolean = l match {
+      case Cons(x, t @ Cons(y, _)) => x >= y && _hasDescendingOrder(t)
+      case _                       => true
+   }
+
+   def _hasStrictDescendingOrder(l: IntList): Boolean = l match {
+      case Cons(x, t @ Cons(y, _)) => x > y && _hasStrictDescendingOrder(t)
+      case _                       => true
+   }
+
+   def _sortAscending_merge(l1: IntList, l2: IntList, acum: IntList): IntList = {
+      assume(_hasAscendingOrder(l1) && _hasAscendingOrder(l2) && _hasAscendingOrder(acum))
+      (l1, l2) match {
+         case (Nil, Nil)                              => acum
+         case (Cons(x1, t1), Nil)                     => _sortAscending_merge(t1, Nil, append(acum, x1))
+         case (Nil, Cons(x2, t2))                     => _sortAscending_merge(Nil, t2, append(acum, x2))
+         case (Cons(x1, t1), Cons(x2, _)) if x1 <= x2 => _sortAscending_merge(t1, l2, append(acum, x1))
+         case (Cons(x1, _), Cons(x2, t2)) if x1 > x2  => _sortAscending_merge(l1, t2, append(acum, x2))
+      }
+   } ensuring (res => size(res) == size(l1) + size(l2) + size(acum) && _hasAscendingOrder(res))
+
+   def sortAscending(l: IntList): IntList = {
+      l match {
+         case Nil                   => Nil
+         case Cons(x, Nil)          => l
+         case Cons(x, Cons(y, Nil)) => if (x <= y) l else Cons(y, Cons(x, Nil))
+         case Cons(x, t) =>
+            val mid = size(l) / 2
+            val l1 = sortAscending(take(l, mid))
+            val l2 = sortAscending(drop(l, mid))
+            _sortAscending_merge(l1, l2, Nil)
+      }
+   } ensuring (res => size(res) == size(l) && _hasAscendingOrder(res))
+
+   def _sortDecending_merge(l1: IntList, l2: IntList, acum: IntList): IntList = {
+      assume(_hasDescendingOrder(l1) && _hasDescendingOrder(l2) && _hasDescendingOrder(acum))
+      (l1, l2) match {
+         case (Nil, Nil)                              => acum
+         case (Cons(x1, t1), Nil)                     => _sortDecending_merge(t1, Nil, append(acum, x1))
+         case (Nil, Cons(x2, t2))                     => _sortDecending_merge(Nil, t2, append(acum, x2))
+         case (Cons(x1, t1), Cons(x2, _)) if x1 >= x2 => _sortDecending_merge(t1, l2, append(acum, x1))
+         case (Cons(x1, _), Cons(x2, t2)) if x1 < x2  => _sortDecending_merge(l1, t2, append(acum, x2))
+      }
+   } ensuring (res => size(res) == size(l1) + size(l2) + size(acum) && _hasDescendingOrder(res))
+
+   def sortDecending(l: IntList): IntList = {
+      l match {
+         case Nil                   => Nil
+         case Cons(x, Nil)          => l
+         case Cons(x, Cons(y, Nil)) => if (x >= y) l else Cons(y, Cons(x, Nil))
+         case Cons(x, t) =>
+            val mid = size(l) / 2
+            val l1 = sortDecending(take(l, mid))
+            val l2 = sortDecending(drop(l, mid))
+            _sortDecending_merge(l1, l2, Nil)
+      }
+   } ensuring (res => size(res) == size(l) && _hasDescendingOrder(res))
 
    //
    // INT PAIR LIST
@@ -181,13 +276,6 @@ object obj {
       if (x >= y) x else y
    } ensuring (res => res >= x && res >= y && (res == x || res == y))
 
-   def head(l: IntList) = {
-      l match {
-         case Nil        => error("head of emtpy list")
-         case Cons(x, t) => x
-      }
-   }
-
    def tail(l: IntList) = l match {
       case Nil        => error("tail of emtpy list")
       case Cons(x, t) => t
@@ -227,7 +315,7 @@ object obj {
 
    def isEmpty2(l: IntIntMap) = l match {
       case NilIntIntMap => true
-      case _    => false
+      case _            => false
    }
 
    def head2(l: IntIntMap) = l match {
