@@ -118,9 +118,9 @@ object obj {
     }
   } ensuring (res => _isUpperBound(l, res) && contains(l, res))
 
-  //   def _isPermutationOf(l1: IntList, l2: IntList): Boolean = {
-  //      sortAscending(l1) == sortAscending(l2)
-  //   }
+  def _isPermutationOf(l1: IntList, l2: IntList): Boolean = {
+    sortAscending(l1) == sortAscending(l2)
+  }
 
   def _hasAscendingOrder(l: IntList): Boolean = l match {
     case Cons(x, t @ Cons(y, _)) => x <= y && _hasAscendingOrder(t)
@@ -142,22 +142,25 @@ object obj {
     case _                       => true
   }
 
-  def _partitionInt(l: IntList, x: Int): (IntList, IntList) = (l match {
-    case Nil => (Nil, Nil)
-    case Cons(y, t) if y < x =>
-      val (l1, l2) = _partitionInt(t, x)
-      (Cons(y, l1), l2)
-    case Cons(y, t) =>
-      val (l1, l2) = _partitionInt(t, x)
-      (l1, Cons(y, l2))
-  }) ensuring (res => size(res._1) + size(res._2) == size(l) && _isUpperBound(res._1, x) && _isLowerBound(res._2, x))
-
-  def quickSort(l: IntList): IntList = (l match {
+  def _mergeAscending(l1: IntList, l2: IntList): IntList = {
+    require(_hasAscendingOrder(l1) && _hasAscendingOrder(l2))
+    (l1, l2) match {
+      case (Nil, Nil) => Nil
+      case (_, Nil) => l1
+      case (Nil, _) => l2
+      case (Cons(y1, t1), Cons(y2, _)) if y1 < y2 =>
+        val t = _mergeAscending(t1, l2)
+        Cons(y1, t)
+      case (Cons(y1, _), Cons(y2, t2)) =>
+        val t = _mergeAscending(l1, t2)
+        Cons(y2, t)
+    }
+  } ensuring (res => size(res) == size(l1) + size(l2) && _hasAscendingOrder(res))
+  
+  def sortAscending(l: IntList): IntList = (l match {
     case Nil => Nil
-    case Cons(x, t) =>
-      val (l1, l2) = _partitionInt(t, x)
-      concat(quickSort(l1), Cons(x, quickSort(l2)))
-  }) ensuring (res => size(l) == size(res) && _hasAscendingOrder(res))
+    case Cons(x, t) => _mergeAscending(Cons(x, Nil), sortAscending(t))
+  }) ensuring (res => size(res) == size(l) && _hasAscendingOrder(res))
 
   //
   // INT PAIR LIST
