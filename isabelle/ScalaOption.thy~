@@ -1,9 +1,0 @@
-theory ScalaOption
-imports Datatype
-begin
-datatype 'a Option = None | Some 'a
-
-
-
-end
-
