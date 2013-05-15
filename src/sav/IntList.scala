@@ -118,6 +118,15 @@ object obj {
     case Cons(x, t) => Cons(x, concat(t, l2))
   }) ensuring (res => size(res) == size(l1) + size(l2) && _isPrefix(l1, res) && drop(res, size(l1)) == l2)
 
+
+//   def _concatRightNil(l1: IntList): Boolean = {
+//    concat(l1, Nil) == l1
+//  } holds
+//  
+//    def _concatAso(l1: IntList, l2: IntList, l3: IntList): Boolean = {
+//    concat(concat(l1, l2),l3) == concat(l1,concat(l2,l3))
+//  } holds
+  
   def min(l: IntList): Int = {
     require(size(l) > 0)
     l match {
