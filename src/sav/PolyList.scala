@@ -2,7 +2,7 @@ import leon.Utils._
 
 object polylist {
 
-  case class TypeA(x: Map[Int, Int])
+  case class TypeA(x: Set[Int])
 
   //
   // List of elements of type A
@@ -16,10 +16,119 @@ object polylist {
     case ACons(_, t) => 1 + size(t)
   }) ensuring (res => (res == 0 && l == ANil) || (res > 0 && l.isInstanceOf[ACons]))
 
-  def isEmpty(l: AList) = (l match {
+  def isEmpty(l: AList): Boolean = (l match {
     case ANil => true
     case _    => false
   }) ensuring (res => (res && l == ANil) || (!res && l.isInstanceOf[ACons]))
+
+  def tail(l: AList) = l match {
+    case ANil        => error("tail of emtpy list")
+    case ACons(x, t) => t
+  }
+
+  def drop(l: AList, n: Int): AList = {
+    require(n >= 0)
+    l match {
+      case ACons(x, t) if n > 0 => drop(t, n - 1)
+      case _                    => l
+    }
+  } ensuring (res => size(res) == _maxInt(0, size(l) - n))
+
+  def take(l: AList, n: Int): AList = {
+    require(n >= 0)
+    l match {
+      case ACons(x, t) if n > 0 => ACons(x, take(t, n - 1))
+      case _Int                 => ANil
+    }
+  } ensuring (res => size(res) == _minInt(n, size(l)))
+
+  def contains(l: AList, x: TypeA): Boolean = (l match {
+    case ANil        => false
+    case ACons(y, t) => (x == y) || contains(t, x)
+  })
+
+  def head(l: AList): TypeA = {
+    require(size(l) > 0)
+    l match {
+      case ACons(x, t) => x
+    }
+  } ensuring (res => contains(l, res))
+
+  def last(l: AList): TypeA = {
+    require(size(l) > 0)
+    l match {
+      case ACons(x, ANil) => x
+      case ACons(x, t)    => last(t)
+    }
+  } ensuring (res => contains(l, res) && head(drop(l, size(l) - 1)) == res)
+
+  def prepend(l: AList, x: TypeA): AList = {
+    ACons(x, l)
+  } ensuring (res => size(res) == size(l) + 1 && drop(res, 1) == l && head(res) == x)
+
+  def append(l: AList, x: TypeA): AList = {
+    l match {
+      case ACons(y, t) => ACons(y, append(t, x))
+      case ANil        => ACons(x, ANil)
+    }
+  } ensuring (res => size(res) == size(l) + 1 && take(res, size(res) - 1) == l && last(res) == x)
+
+  def concat(l1: AList, l2: AList): AList = (l1 match {
+    case ANil        => l2
+    case ACons(x, t) => ACons(x, concat(t, l2))
+  }) ensuring (res => size(res) == size(l1) + size(l2) && _isPrefix(l1, res) && drop(res, size(l1)) == l2)
+
+  // Pair of elements of type A
+  case class AAPair(l: TypeA, r: TypeA)
+
+  //
+  // List of pairs of elements of type A
+  //
+  sealed abstract class AAList
+  case object AANil extends AAList
+  case class AACons(hd: AAPair, tl: AAList) extends AAList
+
+  def size2(l: AAList): Int = (l match {
+    case AANil        => 0
+    case AACons(_, t) => 1 + size2(t)
+  }) ensuring (res => (res == 0 && l == AANil) || (res > 0 && l.isInstanceOf[AACons]))
+
+  def zip(l1: AList, l2: AList): AAList = ((l1, l2) match {
+    case (ANil, _)                      => AANil
+    case (_, ANil)                      => AANil
+    case (ACons(x1, t1), ACons(x2, t2)) => AACons(AAPair(x1, x2), zip(t1, t2))
+  }) ensuring (res => size2(res) == _minInt(size(l1), size(l2)))
+
+  def zipWithAll(l1: AList, l2: AList, x1: TypeA, x2: TypeA): AAList = ((l1, l2) match {
+    case (ANil, ANil)                   => AANil
+    case (ACons(y1, t1), ANil)          => AACons(AAPair(y1, x2), zipWithAll(t1, ANil, x1, x2))
+    case (ANil, ACons(y2, t2))          => AACons(AAPair(x1, y2), zipWithAll(ANil, t2, x1, x2))
+    case (ACons(y1, t1), ACons(y2, t2)) => AACons(AAPair(y1, y2), zipWithAll(t1, t2, x1, x2))
+  }) ensuring (res => size2(res) == _maxInt(size(l1), size(l2)))
+
+  def unzip(l: AAList): (AList, AList) = (l match {
+    case AANil => (ANil, ANil)
+    case AACons(AAPair(x1, x2), t) =>
+      val (t1, t2) = unzip(t)
+      (ACons(x1, t1), ACons(x2, t2))
+  }) ensuring (res => size(res._1) == size2(l) && size(res._2) == size2(l))
+
+  //
+  // Utils
+  // 
+
+  def _minInt(x: Int, y: Int): Int = {
+    if (x <= y) x else y
+  } ensuring (res => res <= x && res <= y && (res == x || res == y))
+
+  def _maxInt(x: Int, y: Int): Int = {
+    if (x >= y) x else y
+  } ensuring (res => res >= x && res >= y && (res == x || res == y))
+
+  def _isPrefix(l1: AList, l2: AList): Boolean = {
+    val (ll1, ll2) = unzip(zip(l1, l2))
+    l1 == ll1 && l1 == ll2
+  }
 
   /*
 
