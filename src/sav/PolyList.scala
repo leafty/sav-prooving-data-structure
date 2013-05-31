@@ -78,6 +78,39 @@ object polylist {
     case ACons(x, t) => ACons(x, concat(t, l2))
   }) ensuring (res => size(res) == size(l1) + size(l2) && _isPrefix(l1, res) && drop(res, size(l1)) == l2)
 
+  def get(l: AList, n: Int): TypeA = ({
+    require(0 <= n && n < size(l))
+    l match {
+      case ACons(x, t) if n == 0 => x
+      case ACons(_, t)           => get(t, n - 1)
+    }
+  }) ensuring (res => contains(l, res) && head(drop(l, n)) == res && last(take(l, n + 1)) == res)
+
+  def exists(l: AList, p: ABoolMap): Boolean = {
+    require(_isTotalABool(l, p))
+    l match {
+      case ANil        => false
+      case ACons(x, t) => get(p, x) || exists(t, p)
+    }
+  }
+
+  def forall(l: AList, p: ABoolMap): Boolean = {
+    require(_isTotalABool(l, p))
+    l match {
+      case ANil        => true
+      case ACons(x, t) => get(p, x) && forall(t, p)
+    }
+  }
+
+  def filter(l: AList, p: ABoolMap): AList = {
+    require(_isTotalABool(l, p))
+    l match {
+      case ANil                     => ANil
+      case ACons(x, t) if get(p, x) => ACons(x, filter(t, p))
+      case ACons(_, t)              => filter(t, p)
+    }
+  } ensuring (res => size(res) <= size(l) && _isTotalABool(res, p) && forall(res, p))
+
   // Pair of elements of type A
   case class AAPair(l: TypeA, r: TypeA)
 
@@ -114,6 +147,49 @@ object polylist {
   }) ensuring (res => size(res._1) == size2(l) && size(res._2) == size2(l))
 
   //
+  // Optional boolean
+  //
+  sealed abstract class OptionBool
+  case object NoneBool extends OptionBool
+  case class SomeBool(bool: Boolean) extends OptionBool
+
+  def equal(o: OptionBool, b: Boolean): Boolean = o match {
+    case NoneBool     => false
+    case SomeBool(b2) => b == b2
+  }
+
+  // Pair of an element of type A and a boolean
+  case class ABoolPair(l: TypeA, r: Boolean)
+
+  //
+  // Lists of pairs of elements of type A and booleans,
+  // used to represent Map[A, Boolean],
+  // in turn used to represent predicates
+  //
+  sealed abstract class ABoolMap
+  case object ABoolNil extends ABoolMap
+  case class ABoolCons(hd: ABoolPair, tl: ABoolMap) extends ABoolMap
+
+  def isDefinedAt(p: ABoolMap, x: TypeA): Boolean = (p match {
+    case ABoolNil                      => false
+    case ABoolCons(ABoolPair(y, _), t) => (x == y) || isDefinedAt(t, x)
+  })
+
+  def get(p: ABoolMap, x: TypeA): Boolean = {
+    require(isDefinedAt(p, x))
+    p match {
+      case ABoolCons(ABoolPair(y, b), _) if x == y => b
+      case ABoolCons(_, t)                         => get(t, x)
+    }
+  }
+
+  def getOption(p: ABoolMap, x: TypeA): OptionBool = (p match {
+    case ABoolNil                                => NoneBool
+    case ABoolCons(ABoolPair(y, b), _) if x == y => SomeBool(b)
+    case ABoolCons(_, t)                         => getOption(t, x)
+  }) ensuring (res => (res == NoneBool && !isDefinedAt(p, x)) || (res.isInstanceOf[SomeBool] && isDefinedAt(p, x) && equal(res, get(p, x))))
+
+  //
   // Utils
   // 
 
@@ -130,6 +206,11 @@ object polylist {
     l1 == ll1 && l1 == ll2
   }
 
+  def _isTotalABool(l: AList, p: ABoolMap): Boolean = (l match {
+    case ANil        => true
+    case ACons(x, t) => isDefinedAt(p, x) && _isTotalABool(t, p)
+  })
+
   /*
 
   def map(l: IntList, f: IntIntMap): IntList = {
@@ -140,7 +221,7 @@ object polylist {
     }
   } ensuring (res => size(l) == size(res))
 
-  def forall(l: IntList, p: IntBoolMap): Boolean = {
+  def forall(l: IntList, p: ABoolMap): Boolean = {
     require(_isTotalIntBool(l, p))
     l match {
       case Nil                     => true
@@ -157,7 +238,7 @@ object polylist {
     }
   }) ensuring (res => contains(l, res) && head(drop(l, n)) == res && last(take(l, n + 1)) == res)
 
-  def filter(l: IntList, p: IntBoolMap): IntList = {
+  def filter(l: IntList, p: ABoolMap): IntList = {
     require(_isTotalIntBool(l, p))
     l match {
       case Nil                     => Nil
@@ -166,7 +247,7 @@ object polylist {
     }
   } ensuring (res => size(res) <= size(l) && _isTotalIntBool(res, p) && forall(res, p))
 
-  def exists(l: IntList, p: IntBoolMap): Boolean = {
+  def exists(l: IntList, p: ABoolMap): Boolean = {
     require(_isTotalIntBool(l, p))
     l match {
       case Nil                     => false
@@ -322,29 +403,29 @@ object polylist {
   //
   // INT BOOL MAP 
   //
-  sealed abstract class IntBoolMap
-  case object NilIntBoolMap extends IntBoolMap
-  case class ConsIntBoolMap(hd: (Int, Boolean), tl: IntBoolMap) extends IntBoolMap
+  sealed abstract class ABoolMap
+  case object ABoolNil extends ABoolMap
+  case class ABoolCons(hd: (Int, Boolean), tl: ABoolMap) extends ABoolMap
 
-  def isDefinedAt(p: IntBoolMap, x: Int): Boolean = (p match {
-    case NilIntBoolMap                       => false
-    case ConsIntBoolMap((y, _), _) if x == y => true
-    case ConsIntBoolMap(_, t)                => isDefinedAt(t, x)
+  def isDefinedAt(p: ABoolMap, x: Int): Boolean = (p match {
+    case ABoolNil                       => false
+    case ABoolCons((y, _), _) if x == y => true
+    case ABoolCons(_, t)                => isDefinedAt(t, x)
   })
 
-  def get(p: IntBoolMap, x: Int): Boolean = {
+  def get(p: ABoolMap, x: Int): Boolean = {
     require(isDefinedAt(p, x))
     p match {
-      case ConsIntBoolMap((y, b), _) if x == y => b
-      case ConsIntBoolMap(_, t)                => get(t, x)
+      case ABoolCons((y, b), _) if x == y => b
+      case ABoolCons(_, t)                => get(t, x)
     }
   }
 
-  def getOption(p: IntBoolMap, x: Int): OptionBool = {
+  def getOption(p: ABoolMap, x: Int): OptionBool = {
     (p match {
-      case NilIntBoolMap                       => NoneBool
-      case ConsIntBoolMap((y, b), _) if x == y => SomeBool(b)
-      case ConsIntBoolMap(_, t)                => getOption(t, x)
+      case ABoolNil                       => NoneBool
+      case ABoolCons((y, b), _) if x == y => SomeBool(b)
+      case ABoolCons(_, t)                => getOption(t, x)
     })
   } ensuring (res => (res == NoneBool && !isDefinedAt(p, x)) || (res.isInstanceOf[SomeBool] && isDefinedAt(p, x) && equal(res, get(p, x))))
 
@@ -395,7 +476,7 @@ object polylist {
     case _                               => false
   })
 
-  def _isTotalIntBool(l: IntList, p: IntBoolMap): Boolean = (l match {
+  def _isTotalIntBool(l: IntList, p: ABoolMap): Boolean = (l match {
     case Nil                             => true
     case Cons(x, t) if isDefinedAt(p, x) => _isTotalIntBool(t, p)
     case _                               => false
