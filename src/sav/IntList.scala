@@ -118,15 +118,14 @@ object obj {
     case Cons(x, t) => Cons(x, concat(t, l2))
   }) ensuring (res => size(res) == size(l1) + size(l2) && _isPrefix(l1, res) && drop(res, size(l1)) == l2)
 
+  //   def _concatRightNil(l1: IntList): Boolean = {
+  //    concat(l1, Nil) == l1
+  //  } holds
+  //  
+  //    def _concatAso(l1: IntList, l2: IntList, l3: IntList): Boolean = {
+  //    concat(concat(l1, l2),l3) == concat(l1,concat(l2,l3))
+  //  } holds
 
-//   def _concatRightNil(l1: IntList): Boolean = {
-//    concat(l1, Nil) == l1
-//  } holds
-//  
-//    def _concatAso(l1: IntList, l2: IntList, l3: IntList): Boolean = {
-//    concat(concat(l1, l2),l3) == concat(l1,concat(l2,l3))
-//  } holds
-  
   def min(l: IntList): Int = {
     require(size(l) > 0)
     l match {
@@ -161,8 +160,8 @@ object obj {
     require(_hasAscendingOrder(l1) && _hasAscendingOrder(l2))
     (l1, l2) match {
       case (Nil, Nil) => Nil
-      case (_, Nil) => l1
-      case (Nil, _) => l2
+      case (_, Nil)   => l1
+      case (Nil, _)   => l2
       case (Cons(y1, t1), Cons(y2, _)) if y1 < y2 =>
         val t = _mergeAscending(t1, l2)
         Cons(y1, t)
@@ -171,9 +170,9 @@ object obj {
         Cons(y2, t)
     }
   } ensuring (res => size(res) == size(l1) + size(l2) && _hasAscendingOrder(res))
-  
+
   def sortAscending(l: IntList): IntList = (l match {
-    case Nil => Nil
+    case Nil        => Nil
     case Cons(x, t) => _mergeAscending(Cons(x, Nil), sortAscending(t))
   }) ensuring (res => size(res) == size(l) && _hasAscendingOrder(res))
 
@@ -185,9 +184,8 @@ object obj {
   case class ConsIntIntMap(hd: (Int, Int), tl: IntIntMap) extends IntIntMap
 
   def isDefinedAt(p: IntIntMap, x: Int): Boolean = (p match {
-    case NilIntIntMap                       => false
-    case ConsIntIntMap((y, _), _) if x == y => true
-    case ConsIntIntMap(_, t)                => isDefinedAt(t, x)
+    case NilIntIntMap             => false
+    case ConsIntIntMap((y, _), t) => (x == y) || isDefinedAt(t, x)
   })
 
   def get(p: IntIntMap, x: Int): Int = {
