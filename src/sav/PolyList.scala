@@ -3,148 +3,169 @@ import leon.Utils._
 object polylist {
 
   case class TypeA(x: Set[Int])
+  case class TypeB(x: Map[Int, Boolean])
 
   //
   // List of elements of type A
   //
-  sealed abstract class AList
-  case object ANil extends AList
-  case class ACons(hd: TypeA, tl: AList) extends AList
+  sealed abstract class ListA
+  case object NilA extends ListA
+  case class ConsA(hd: TypeA, tl: ListA) extends ListA
 
-  def size(l: AList): Int = (l match {
-    case ANil        => 0
-    case ACons(_, t) => 1 + size(t)
-  }) ensuring (res => (res == 0 && l == ANil) || (res > 0 && l.isInstanceOf[ACons]))
+  //
+  // List of elements of type B
+  //
+  sealed abstract class ListB
+  case object NilB extends ListB
+  case class ConsB(hd: TypeB, tl: ListB) extends ListB
 
-  def isEmpty(l: AList): Boolean = (l match {
-    case ANil => true
+  def size(l: ListA): Int = (l match {
+    case NilA        => 0
+    case ConsA(_, t) => 1 + size(t)
+  }) ensuring (res => (res == 0 && l == NilA) || (res > 0 && l.isInstanceOf[ConsA]))
+
+  def sizeB(l: ListB): Int = (l match {
+    case NilB        => 0
+    case ConsB(_, t) => 1 + sizeB(t)
+  }) ensuring (res => (res == 0 && l == NilB) || (res > 0 && l.isInstanceOf[ConsB]))
+
+  def isEmpty(l: ListA): Boolean = (l match {
+    case NilA => true
     case _    => false
-  }) ensuring (res => (res && l == ANil) || (!res && l.isInstanceOf[ACons]))
+  }) ensuring (res => (res && l == NilA) || (!res && l.isInstanceOf[ConsA]))
 
-  def tail(l: AList) = l match {
-    case ANil        => error("tail of emtpy list")
-    case ACons(x, t) => t
+  def tail(l: ListA) = l match {
+    case NilA        => error("tail of emtpy list")
+    case ConsA(x, t) => t
   }
 
-  def drop(l: AList, n: Int): AList = {
+  def drop(l: ListA, n: Int): ListA = {
     require(n >= 0)
     l match {
-      case ACons(x, t) if n > 0 => drop(t, n - 1)
+      case ConsA(x, t) if n > 0 => drop(t, n - 1)
       case _                    => l
     }
   } ensuring (res => size(res) == _maxInt(0, size(l) - n))
 
-  def take(l: AList, n: Int): AList = {
+  def take(l: ListA, n: Int): ListA = {
     require(n >= 0)
     l match {
-      case ACons(x, t) if n > 0 => ACons(x, take(t, n - 1))
-      case _Int                 => ANil
+      case ConsA(x, t) if n > 0 => ConsA(x, take(t, n - 1))
+      case _Int                 => NilA
     }
   } ensuring (res => size(res) == _minInt(n, size(l)))
 
-  def contains(l: AList, x: TypeA): Boolean = (l match {
-    case ANil        => false
-    case ACons(y, t) => (x == y) || contains(t, x)
+  def contains(l: ListA, x: TypeA): Boolean = (l match {
+    case NilA        => false
+    case ConsA(y, t) => (x == y) || contains(t, x)
   })
 
-  def head(l: AList): TypeA = {
+  def head(l: ListA): TypeA = {
     require(size(l) > 0)
     l match {
-      case ACons(x, t) => x
+      case ConsA(x, t) => x
     }
   } ensuring (res => contains(l, res))
 
-  def last(l: AList): TypeA = {
+  def last(l: ListA): TypeA = {
     require(size(l) > 0)
     l match {
-      case ACons(x, ANil) => x
-      case ACons(x, t)    => last(t)
+      case ConsA(x, NilA) => x
+      case ConsA(x, t)    => last(t)
     }
   } ensuring (res => contains(l, res) && head(drop(l, size(l) - 1)) == res)
 
-  def prepend(l: AList, x: TypeA): AList = {
-    ACons(x, l)
+  def prepend(l: ListA, x: TypeA): ListA = {
+    ConsA(x, l)
   } ensuring (res => size(res) == size(l) + 1 && drop(res, 1) == l && head(res) == x)
 
-  def append(l: AList, x: TypeA): AList = {
+  def append(l: ListA, x: TypeA): ListA = {
     l match {
-      case ACons(y, t) => ACons(y, append(t, x))
-      case ANil        => ACons(x, ANil)
+      case ConsA(y, t) => ConsA(y, append(t, x))
+      case NilA        => ConsA(x, NilA)
     }
   } ensuring (res => size(res) == size(l) + 1 && take(res, size(res) - 1) == l && last(res) == x)
 
-  def concat(l1: AList, l2: AList): AList = (l1 match {
-    case ANil        => l2
-    case ACons(x, t) => ACons(x, concat(t, l2))
+  def concat(l1: ListA, l2: ListA): ListA = (l1 match {
+    case NilA        => l2
+    case ConsA(x, t) => ConsA(x, concat(t, l2))
   }) ensuring (res => size(res) == size(l1) + size(l2) && _isPrefix(l1, res) && drop(res, size(l1)) == l2)
 
-  def get(l: AList, n: Int): TypeA = ({
+  def get(l: ListA, n: Int): TypeA = ({
     require(0 <= n && n < size(l))
     l match {
-      case ACons(x, t) if n == 0 => x
-      case ACons(_, t)           => get(t, n - 1)
+      case ConsA(x, t) if n == 0 => x
+      case ConsA(_, t)           => get(t, n - 1)
     }
   }) ensuring (res => contains(l, res) && head(drop(l, n)) == res && last(take(l, n + 1)) == res)
 
-  def exists(l: AList, p: ABoolMap): Boolean = {
+  def exists(l: ListA, p: ListABool): Boolean = {
     require(_isTotalABool(l, p))
     l match {
-      case ANil        => false
-      case ACons(x, t) => get(p, x) || exists(t, p)
+      case NilA        => false
+      case ConsA(x, t) => get(p, x) || exists(t, p)
     }
   }
 
-  def forall(l: AList, p: ABoolMap): Boolean = {
+  def forall(l: ListA, p: ListABool): Boolean = {
     require(_isTotalABool(l, p))
     l match {
-      case ANil        => true
-      case ACons(x, t) => get(p, x) && forall(t, p)
+      case NilA        => true
+      case ConsA(x, t) => get(p, x) && forall(t, p)
     }
   }
 
-  def filter(l: AList, p: ABoolMap): AList = {
+  def filter(l: ListA, p: ListABool): ListA = {
     require(_isTotalABool(l, p))
     l match {
-      case ANil                     => ANil
-      case ACons(x, t) if get(p, x) => ACons(x, filter(t, p))
-      case ACons(_, t)              => filter(t, p)
+      case NilA                     => NilA
+      case ConsA(x, t) if get(p, x) => ConsA(x, filter(t, p))
+      case ConsA(_, t)              => filter(t, p)
     }
   } ensuring (res => size(res) <= size(l) && _isTotalABool(res, p) && forall(res, p))
 
+  def map(l: ListA, f: ListAB): ListB = {
+    require(_isTotalAB(l, f))
+    l match {
+      case NilA        => NilB
+      case ConsA(x, t) => ConsB(get(f, x), map(t, f))
+    }
+  } ensuring (res => size(l) == sizeB(res))
+
   // Pair of elements of type A
-  case class AAPair(l: TypeA, r: TypeA)
+  case class PairAA(l: TypeA, r: TypeA)
 
   //
   // List of pairs of elements of type A
   //
-  sealed abstract class AAList
-  case object AANil extends AAList
-  case class AACons(hd: AAPair, tl: AAList) extends AAList
+  sealed abstract class ListAA
+  case object NilAA extends ListAA
+  case class ConsAA(hd: PairAA, tl: ListAA) extends ListAA
 
-  def size2(l: AAList): Int = (l match {
-    case AANil        => 0
-    case AACons(_, t) => 1 + size2(t)
-  }) ensuring (res => (res == 0 && l == AANil) || (res > 0 && l.isInstanceOf[AACons]))
+  def sizeAA(l: ListAA): Int = (l match {
+    case NilAA        => 0
+    case ConsAA(_, t) => 1 + sizeAA(t)
+  }) ensuring (res => (res == 0 && l == NilAA) || (res > 0 && l.isInstanceOf[ConsAA]))
 
-  def zip(l1: AList, l2: AList): AAList = ((l1, l2) match {
-    case (ANil, _)                      => AANil
-    case (_, ANil)                      => AANil
-    case (ACons(x1, t1), ACons(x2, t2)) => AACons(AAPair(x1, x2), zip(t1, t2))
-  }) ensuring (res => size2(res) == _minInt(size(l1), size(l2)))
+  def zipAA(l1: ListA, l2: ListA): ListAA = ((l1, l2) match {
+    case (NilA, _)                      => NilAA
+    case (_, NilA)                      => NilAA
+    case (ConsA(x1, t1), ConsA(x2, t2)) => ConsAA(PairAA(x1, x2), zipAA(t1, t2))
+  }) ensuring (res => sizeAA(res) == _minInt(size(l1), size(l2)))
 
-  def zipWithAll(l1: AList, l2: AList, x1: TypeA, x2: TypeA): AAList = ((l1, l2) match {
-    case (ANil, ANil)                   => AANil
-    case (ACons(y1, t1), ANil)          => AACons(AAPair(y1, x2), zipWithAll(t1, ANil, x1, x2))
-    case (ANil, ACons(y2, t2))          => AACons(AAPair(x1, y2), zipWithAll(ANil, t2, x1, x2))
-    case (ACons(y1, t1), ACons(y2, t2)) => AACons(AAPair(y1, y2), zipWithAll(t1, t2, x1, x2))
-  }) ensuring (res => size2(res) == _maxInt(size(l1), size(l2)))
+  def zipWithAllAA(l1: ListA, l2: ListA, x1: TypeA, x2: TypeA): ListAA = ((l1, l2) match {
+    case (NilA, NilA)                   => NilAA
+    case (ConsA(y1, t1), NilA)          => ConsAA(PairAA(y1, x2), zipWithAllAA(t1, NilA, x1, x2))
+    case (NilA, ConsA(y2, t2))          => ConsAA(PairAA(x1, y2), zipWithAllAA(NilA, t2, x1, x2))
+    case (ConsA(y1, t1), ConsA(y2, t2)) => ConsAA(PairAA(y1, y2), zipWithAllAA(t1, t2, x1, x2))
+  }) ensuring (res => sizeAA(res) == _maxInt(size(l1), size(l2)))
 
-  def unzip(l: AAList): (AList, AList) = (l match {
-    case AANil => (ANil, ANil)
-    case AACons(AAPair(x1, x2), t) =>
-      val (t1, t2) = unzip(t)
-      (ACons(x1, t1), ACons(x2, t2))
-  }) ensuring (res => size(res._1) == size2(l) && size(res._2) == size2(l))
+  def unzipAA(l: ListAA): (ListA, ListA) = (l match {
+    case NilAA => (NilA, NilA)
+    case ConsAA(PairAA(x1, x2), t) =>
+      val (t1, t2) = unzipAA(t)
+      (ConsA(x1, t1), ConsA(x2, t2))
+  }) ensuring (res => size(res._1) == sizeAA(l) && size(res._2) == sizeAA(l))
 
   //
   // Optional boolean
@@ -159,35 +180,103 @@ object polylist {
   }
 
   // Pair of an element of type A and a boolean
-  case class ABoolPair(l: TypeA, r: Boolean)
+  case class PairABool(l: TypeA, r: Boolean)
 
   //
   // Lists of pairs of elements of type A and booleans,
   // used to represent Map[A, Boolean],
   // in turn used to represent predicates
   //
-  sealed abstract class ABoolMap
-  case object ABoolNil extends ABoolMap
-  case class ABoolCons(hd: ABoolPair, tl: ABoolMap) extends ABoolMap
+  sealed abstract class ListABool
+  case object NilABool extends ListABool
+  case class ConsABool(hd: PairABool, tl: ListABool) extends ListABool
 
-  def isDefinedAt(p: ABoolMap, x: TypeA): Boolean = (p match {
-    case ABoolNil                      => false
-    case ABoolCons(ABoolPair(y, _), t) => (x == y) || isDefinedAt(t, x)
+  def isDefinedAt(p: ListABool, x: TypeA): Boolean = (p match {
+    case NilABool                      => false
+    case ConsABool(PairABool(y, _), t) => (x == y) || isDefinedAt(t, x)
   })
 
-  def get(p: ABoolMap, x: TypeA): Boolean = {
+  def get(p: ListABool, x: TypeA): Boolean = {
     require(isDefinedAt(p, x))
     p match {
-      case ABoolCons(ABoolPair(y, b), _) if x == y => b
-      case ABoolCons(_, t)                         => get(t, x)
+      case ConsABool(PairABool(y, b), _) if x == y => b
+      case ConsABool(_, t)                         => get(t, x)
     }
   }
 
-  def getOption(p: ABoolMap, x: TypeA): OptionBool = (p match {
-    case ABoolNil                                => NoneBool
-    case ABoolCons(ABoolPair(y, b), _) if x == y => SomeBool(b)
-    case ABoolCons(_, t)                         => getOption(t, x)
+  def getOption(p: ListABool, x: TypeA): OptionBool = (p match {
+    case NilABool                                => NoneBool
+    case ConsABool(PairABool(y, b), _) if x == y => SomeBool(b)
+    case ConsABool(_, t)                         => getOption(t, x)
   }) ensuring (res => (res == NoneBool && !isDefinedAt(p, x)) || (res.isInstanceOf[SomeBool] && isDefinedAt(p, x) && equal(res, get(p, x))))
+
+  //
+  // Optional element of type B
+  //
+  sealed abstract class OptionB
+  case object NoneB extends OptionB
+  case class SomeB(x: TypeB) extends OptionB
+
+  def equal(o: OptionB, x: TypeB): Boolean = o match {
+    case NoneB    => false
+    case SomeB(y) => x == y
+  }
+
+  // Pair of an element of type A and an element of type B
+  case class PairAB(l: TypeA, r: TypeB)
+
+  //
+  // Lists of pairs of elements of type A and elements of type B,
+  // used to represent Map[A, B],
+  // in turn used to represent partial functions
+  //
+  sealed abstract class ListAB
+  case object NilAB extends ListAB
+  case class ConsAB(hd: PairAB, tl: ListAB) extends ListAB
+
+  def isDefinedAt(f: ListAB, x: TypeA): Boolean = (f match {
+    case NilAB                   => false
+    case ConsAB(PairAB(y, _), t) => (x == y) || isDefinedAt(t, x)
+  })
+
+  def get(f: ListAB, x: TypeA): TypeB = {
+    require(isDefinedAt(f, x))
+    f match {
+      case ConsAB(PairAB(y, z), _) if x == y => z
+      case ConsAB(_, t)                      => get(t, x)
+    }
+  }
+
+  def getOption(f: ListAB, x: TypeA): OptionB = (f match {
+    case NilAB                             => NoneB
+    case ConsAB(PairAB(y, z), _) if x == y => SomeB(z)
+    case ConsAB(_, t)                      => getOption(t, x)
+  }) ensuring (res => (res == NoneB && !isDefinedAt(f, x)) || (res.isInstanceOf[SomeB] && isDefinedAt(f, x) && equal(res, get(f, x))))
+
+  def size2(l: ListAB): Int = (l match {
+    case NilAB        => 0
+    case ConsAB(_, t) => 1 + size2(t)
+  }) ensuring (res => (res == 0 && l == NilAB) || (res > 0 && l.isInstanceOf[ConsAB]))
+
+  def zip(l1: ListA, l2: ListB): ListAB = ((l1, l2) match {
+    case (NilA, _)                      => NilAB
+    case (_, NilB)                      => NilAB
+    case (ConsA(x1, t1), ConsB(x2, t2)) => ConsAB(PairAB(x1, x2), zip(t1, t2))
+  }) ensuring (res => size2(res) == _minInt(size(l1), sizeB(l2)))
+
+  def zipWithAll(l1: ListA, l2: ListB, x1: TypeA, x2: TypeB): ListAB = ((l1, l2) match {
+    case (NilA, NilB)                   => NilAB
+    case (ConsA(y1, t1), NilB)          => ConsAB(PairAB(y1, x2), zipWithAll(t1, NilB, x1, x2))
+    case (NilA, ConsB(y2, t2))          => ConsAB(PairAB(x1, y2), zipWithAll(NilA, t2, x1, x2))
+    case (ConsA(y1, t1), ConsB(y2, t2)) => ConsAB(PairAB(y1, y2), zipWithAll(t1, t2, x1, x2))
+  }) ensuring (res => size2(res) == _maxInt(size(l1), sizeB(l2)))
+
+  def unzip(l: ListAB): (ListA, ListB) = (l match {
+    case NilAB => (NilA, NilB)
+    case ConsAB(PairAB(x1, x2), t) =>
+      val (t1, t2) = unzip(t)
+      (ConsA(x1, t1), ConsB(x2, t2))
+  }) ensuring (res => size(res._1) == size2(l) && sizeB(res._2) == size2(l))
 
   //
   // Utils
@@ -201,14 +290,20 @@ object polylist {
     if (x >= y) x else y
   } ensuring (res => res >= x && res >= y && (res == x || res == y))
 
-  def _isPrefix(l1: AList, l2: AList): Boolean = {
-    val (ll1, ll2) = unzip(zip(l1, l2))
+  def _isPrefix(l1: ListA, l2: ListA): Boolean = {
+    val (ll1, ll2) = unzipAA(zipAA(l1, l2))
     l1 == ll1 && l1 == ll2
   }
 
-  def _isTotalABool(l: AList, p: ABoolMap): Boolean = (l match {
-    case ANil        => true
-    case ACons(x, t) => isDefinedAt(p, x) && _isTotalABool(t, p)
+  def _isTotalABool(l: ListA, p: ListABool): Boolean = (l match {
+    case NilA        => true
+    case ConsA(x, t) => isDefinedAt(p, x) && _isTotalABool(t, p)
+  })
+
+  def _isTotalAB(l: ListA, f: ListAB): Boolean = (l match {
+    case NilA                             => true
+    case ConsA(x, t) if isDefinedAt(f, x) => _isTotalAB(t, f)
+    case _                                => false
   })
 
   /*
@@ -221,7 +316,7 @@ object polylist {
     }
   } ensuring (res => size(l) == size(res))
 
-  def forall(l: IntList, p: ABoolMap): Boolean = {
+  def forall(l: IntList, p: ListABool): Boolean = {
     require(_isTotalIntBool(l, p))
     l match {
       case Nil                     => true
@@ -238,7 +333,7 @@ object polylist {
     }
   }) ensuring (res => contains(l, res) && head(drop(l, n)) == res && last(take(l, n + 1)) == res)
 
-  def filter(l: IntList, p: ABoolMap): IntList = {
+  def filter(l: IntList, p: ListABool): IntList = {
     require(_isTotalIntBool(l, p))
     l match {
       case Nil                     => Nil
@@ -247,7 +342,7 @@ object polylist {
     }
   } ensuring (res => size(res) <= size(l) && _isTotalIntBool(res, p) && forall(res, p))
 
-  def exists(l: IntList, p: ABoolMap): Boolean = {
+  def exists(l: IntList, p: ListABool): Boolean = {
     require(_isTotalIntBool(l, p))
     l match {
       case Nil                     => false
@@ -403,29 +498,29 @@ object polylist {
   //
   // INT BOOL MAP 
   //
-  sealed abstract class ABoolMap
-  case object ABoolNil extends ABoolMap
-  case class ABoolCons(hd: (Int, Boolean), tl: ABoolMap) extends ABoolMap
+  sealed abstract class ListABool
+  case object NilABool extends ListABool
+  case class ConsABool(hd: (Int, Boolean), tl: ListABool) extends ListABool
 
-  def isDefinedAt(p: ABoolMap, x: Int): Boolean = (p match {
-    case ABoolNil                       => false
-    case ABoolCons((y, _), _) if x == y => true
-    case ABoolCons(_, t)                => isDefinedAt(t, x)
+  def isDefinedAt(p: ListABool, x: Int): Boolean = (p match {
+    case NilABool                       => false
+    case ConsABool((y, _), _) if x == y => true
+    case ConsABool(_, t)                => isDefinedAt(t, x)
   })
 
-  def get(p: ABoolMap, x: Int): Boolean = {
+  def get(p: ListABool, x: Int): Boolean = {
     require(isDefinedAt(p, x))
     p match {
-      case ABoolCons((y, b), _) if x == y => b
-      case ABoolCons(_, t)                => get(t, x)
+      case ConsABool((y, b), _) if x == y => b
+      case ConsABool(_, t)                => get(t, x)
     }
   }
 
-  def getOption(p: ABoolMap, x: Int): OptionBool = {
+  def getOption(p: ListABool, x: Int): OptionBool = {
     (p match {
-      case ABoolNil                       => NoneBool
-      case ABoolCons((y, b), _) if x == y => SomeBool(b)
-      case ABoolCons(_, t)                => getOption(t, x)
+      case NilABool                       => NoneBool
+      case ConsABool((y, b), _) if x == y => SomeBool(b)
+      case ConsABool(_, t)                => getOption(t, x)
     })
   } ensuring (res => (res == NoneBool && !isDefinedAt(p, x)) || (res.isInstanceOf[SomeBool] && isDefinedAt(p, x) && equal(res, get(p, x))))
 
@@ -476,7 +571,7 @@ object polylist {
     case _                               => false
   })
 
-  def _isTotalIntBool(l: IntList, p: ABoolMap): Boolean = (l match {
+  def _isTotalIntBool(l: IntList, p: ListABool): Boolean = (l match {
     case Nil                             => true
     case Cons(x, t) if isDefinedAt(p, x) => _isTotalIntBool(t, p)
     case _                               => false
