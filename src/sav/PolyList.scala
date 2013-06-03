@@ -34,10 +34,12 @@ object polylist {
     case _    => false
   }) ensuring (res => (res && l == NilA) || (!res && l.isInstanceOf[ConsA]))
 
-  def tail(l: ListA) = l match {
-    case NilA        => error("tail of emtpy list")
-    case ConsA(x, t) => t
-  }
+  def tail(l: ListA) = {
+    require(size(l) > 0)
+    l match {
+      case ConsA(x, t) => t
+    }
+  } ensuring (res => endsWith(l, res))
 
   def drop(l: ListA, n: Int): ListA = {
     require(n >= 0)
@@ -126,6 +128,33 @@ object polylist {
     }
   }) ensuring (res => contains(l, res) && head(drop(l, n)) == res && last(take(l, n + 1)) == res)
 
+  def indexOf(l: ListA, x: TypeA): Int = (l match {
+    case NilA                               => -1
+    case ConsA(y, t) if x == y              => 0
+    case ConsA(_, t) if indexOf(t, x) == -1 => -1
+    case ConsA(_, t)                        => 1 + indexOf(t, x)
+  }) ensuring (res => (res == -1 && !contains(l, x)) || (res >= 0 && res < size(l) && get(l, res) == x))
+
+  def remove(l: ListA, x: TypeA): ListA = (l match {
+    case NilA                  => NilA
+    case ConsA(y, t) if x == y => t
+    case ConsA(y, t)           => ConsA(y, remove(t, x))
+  }) ensuring (res => (res == l && !contains(l, x)) || (size(res) + 1 == size(l) && contains(l, x)))
+
+  def diff(l1: ListA, l2: ListA): ListA = (l2 match {
+    case NilA        => l1
+    case ConsA(x, t) => diff(remove(l1, x), t)
+  }) ensuring (res => size(res) <= size(l1) && size(l1) <= size(res) + size(l2))
+
+  def intersect(l1: ListA, l2: ListA): ListA = {
+    diff(l1, diff(l1, l2))
+  } ensuring (res => size(res) <= size(l1))
+
+  def slice(l: ListA, n: Int, m: Int): ListA = {
+    require(0 <= n && n <= m)
+    take(drop(l, n), m - n)
+  } ensuring (res => size(res) <= size(l))
+
   def exists(l: ListA, p: ListABool): Boolean = {
     require(_isTotalABool(l, p))
     l match {
@@ -188,6 +217,24 @@ object polylist {
     }
   } ensuring (res => size(res._1) + size(res._2) == size(l) && res._1 == filter(l, p) && res._2 == filterNot(l, p)
     && forall(res._1, p) && !exists(res._2, p))
+
+  def dropWhile(l: ListA, p: ListABool): ListA = {
+    require(_isTotalABool(l, p))
+    l match {
+      case NilA                     => NilA
+      case ConsA(x, t) if get(p, x) => dropWhile(t, p)
+      case _                        => l
+    }
+  } ensuring (res => size(res) <= size(l) && (size(l) - size(res)) <= size(filter(l, p)))
+
+  def takeWhile(l: ListA, p: ListABool): ListA = {
+    require(_isTotalABool(l, p))
+    l match {
+      case NilA                     => NilA
+      case ConsA(x, t) if get(p, x) => ConsA(x, takeWhile(t, p))
+      case _                        => NilA
+    }
+  } ensuring (res => size(res) <= size(filter(l, p)) && startsWith(filter(l, p), res))
 
   def map(l: ListA, f: ListAB): ListB = {
     require(_isTotalAB(l, f))
