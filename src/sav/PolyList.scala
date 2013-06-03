@@ -340,41 +340,6 @@ object polylist {
     }
   })
 
-  // Pair of elements of type A
-  case class PairAA(l: TypeA, r: TypeA)
-
-  //
-  // List of pairs of elements of type A
-  //
-  sealed abstract class ListAA
-  case object NilAA extends ListAA
-  case class ConsAA(hd: PairAA, tl: ListAA) extends ListAA
-
-  def sizeAA(l: ListAA): Int = (l match {
-    case NilAA        => 0
-    case ConsAA(_, t) => 1 + sizeAA(t)
-  }) ensuring (res => (res == 0 && l == NilAA) || (res > 0 && l.isInstanceOf[ConsAA]))
-
-  def zipAA(l1: ListA, l2: ListA): ListAA = ((l1, l2) match {
-    case (NilA, _)                      => NilAA
-    case (_, NilA)                      => NilAA
-    case (ConsA(x1, t1), ConsA(x2, t2)) => ConsAA(PairAA(x1, x2), zipAA(t1, t2))
-  }) ensuring (res => sizeAA(res) == _minInt(size(l1), size(l2)))
-
-  def zipWithAllAA(l1: ListA, l2: ListA, x1: TypeA, x2: TypeA): ListAA = ((l1, l2) match {
-    case (NilA, NilA)                   => NilAA
-    case (ConsA(y1, t1), NilA)          => ConsAA(PairAA(y1, x2), zipWithAllAA(t1, NilA, x1, x2))
-    case (NilA, ConsA(y2, t2))          => ConsAA(PairAA(x1, y2), zipWithAllAA(NilA, t2, x1, x2))
-    case (ConsA(y1, t1), ConsA(y2, t2)) => ConsAA(PairAA(y1, y2), zipWithAllAA(t1, t2, x1, x2))
-  }) ensuring (res => sizeAA(res) == _maxInt(size(l1), size(l2)))
-
-  def unzipAA(l: ListAA): (ListA, ListA) = (l match {
-    case NilAA => (NilA, NilA)
-    case ConsAA(PairAA(x1, x2), t) =>
-      val (t1, t2) = unzipAA(t)
-      (ConsA(x1, t1), ConsA(x2, t2))
-  }) ensuring (res => size(res._1) == sizeAA(l) && size(res._2) == sizeAA(l))
-
   //
   // Optional boolean
   //
