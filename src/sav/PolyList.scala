@@ -47,6 +47,13 @@ object polylist {
     }
   } ensuring (res => size(res) == _maxInt(0, size(l) - n))
 
+  def dropRight(l: ListA, n: Int): ListA = {
+    require(n >= 0)
+    val s = size(l)
+    val m = _maxInt(s - n, 0)
+    take(l, m)
+  } ensuring (res => size(res) == _maxInt(0, size(l) - n))
+
   def take(l: ListA, n: Int): ListA = {
     require(n >= 0)
     l match {
@@ -55,10 +62,25 @@ object polylist {
     }
   } ensuring (res => size(res) == _minInt(n, size(l)))
 
+  def takeRight(l: ListA, n: Int): ListA = {
+    require(n >= 0)
+    val s = size(l)
+    val m = _maxInt(s - n, 0)
+    drop(l, m)
+  } ensuring (res => size(res) == _minInt(n, size(l)))
+
   def contains(l: ListA, x: TypeA): Boolean = (l match {
     case NilA        => false
     case ConsA(y, t) => (x == y) || contains(t, x)
   })
+
+  def startsWith(l1: ListA, l2: ListA): Boolean = {
+    take(l1, size(l2)) == l2
+  }
+
+  def endsWith(l1: ListA, l2: ListA): Boolean = {
+    takeRight(l1, size(l2)) == l2
+  }
 
   def head(l: ListA): TypeA = {
     require(size(l) > 0)
@@ -66,6 +88,11 @@ object polylist {
       case ConsA(x, t) => x
     }
   } ensuring (res => contains(l, res))
+
+  def headOption(l: ListA): OptionA = (l match {
+    case NilA        => NoneA
+    case ConsA(x, _) => SomeA(x)
+  }) ensuring (res => (res == NoneA && isEmpty(l)) || (res.isInstanceOf[SomeA] && !isEmpty(l)))
 
   def last(l: ListA): TypeA = {
     require(size(l) > 0)
@@ -89,7 +116,7 @@ object polylist {
   def concat(l1: ListA, l2: ListA): ListA = (l1 match {
     case NilA        => l2
     case ConsA(x, t) => ConsA(x, concat(t, l2))
-  }) ensuring (res => size(res) == size(l1) + size(l2) && _isPrefix(l1, res) && drop(res, size(l1)) == l2)
+  }) ensuring (res => size(res) == size(l1) + size(l2) && take(res, size(l1)) == l1 && drop(res, size(l1)) == l2)
 
   def get(l: ListA, n: Int): TypeA = ({
     require(0 <= n && n < size(l))
@@ -115,6 +142,15 @@ object polylist {
     }
   }
 
+  def count(l: ListA, p: ListABool): Int = {
+    require(_isTotalABool(l, p))
+    l match {
+      case NilA                       => 0
+      case ConsA(x, t) if (get(p, x)) => 1 + count(t, p)
+      case ConsA(_, t)                => count(t, p)
+    }
+  } ensuring (res => (res > 0 && exists(l, p)) || (res == 0 && !exists(l, p)))
+
   def filter(l: ListA, p: ListABool): ListA = {
     require(_isTotalABool(l, p))
     l match {
@@ -124,6 +160,35 @@ object polylist {
     }
   } ensuring (res => size(res) <= size(l) && _isTotalABool(res, p) && forall(res, p))
 
+  def filterNot(l: ListA, p: ListABool): ListA = {
+    require(_isTotalABool(l, p))
+    l match {
+      case NilA                      => NilA
+      case ConsA(x, t) if !get(p, x) => ConsA(x, filterNot(t, p))
+      case ConsA(_, t)               => filterNot(t, p)
+    }
+  } ensuring (res => size(res) <= size(l) && _isTotalABool(res, p) && !exists(res, p))
+
+  def find(l: ListA, p: ListABool): OptionA = {
+    require(_isTotalABool(l, p))
+    l match {
+      case NilA                     => NoneA
+      case ConsA(x, _) if get(p, x) => SomeA(x)
+      case ConsA(_, t)              => find(t, p)
+    }
+  } ensuring (res => (res == NoneA && !exists(l, p)) || (res.isInstanceOf[SomeA] && exists(l, p)))
+
+  def partition(l: ListA, p: ListABool): (ListA, ListA) = {
+    require(_isTotalABool(l, p))
+    l match {
+      case NilA => (NilA, NilA)
+      case ConsA(x, t) =>
+        val (l1, l2) = partition(t, p)
+        if (get(p, x)) (ConsA(x, l1), l2) else (l1, ConsA(x, l2))
+    }
+  } ensuring (res => size(res._1) + size(res._2) == size(l) && res._1 == filter(l, p) && res._2 == filterNot(l, p)
+    && forall(res._1, p) && !exists(res._2, p))
+
   def map(l: ListA, f: ListAB): ListB = {
     require(_isTotalAB(l, f))
     l match {
@@ -131,6 +196,22 @@ object polylist {
       case ConsA(x, t) => ConsB(get(f, x), map(t, f))
     }
   } ensuring (res => size(l) == sizeB(res))
+
+  def collect(l: ListA, f: ListAB): ListB = (l match {
+    case NilA => NilB
+    case ConsA(x, t) => getOption(f, x) match {
+      case NoneB    => collect(t, f)
+      case SomeB(y) => ConsB(y, collect(t, f))
+    }
+  }) ensuring (res => sizeB(res) <= size(l))
+
+  def collectFirst(l: ListA, f: ListAB): OptionB = (l match {
+    case NilA => NoneB
+    case ConsA(x, t) => getOption(f, x) match {
+      case NoneB         => collectFirst(t, f)
+      case sy @ SomeB(y) => sy
+    }
+  })
 
   // Pair of elements of type A
   case class PairAA(l: TypeA, r: TypeA)
@@ -211,6 +292,18 @@ object polylist {
   }) ensuring (res => (res == NoneBool && !isDefinedAt(p, x)) || (res.isInstanceOf[SomeBool] && isDefinedAt(p, x) && equal(res, get(p, x))))
 
   //
+  // Optional element of type A
+  //
+  sealed abstract class OptionA
+  case object NoneA extends OptionA
+  case class SomeA(x: TypeA) extends OptionA
+
+  def equal(o: OptionA, x: TypeA): Boolean = o match {
+    case NoneA    => false
+    case SomeA(y) => x == y
+  }
+
+  //
   // Optional element of type B
   //
   sealed abstract class OptionB
@@ -280,7 +373,7 @@ object polylist {
 
   //
   // Utils
-  // 
+  //
 
   def _minInt(x: Int, y: Int): Int = {
     if (x <= y) x else y
@@ -289,11 +382,6 @@ object polylist {
   def _maxInt(x: Int, y: Int): Int = {
     if (x >= y) x else y
   } ensuring (res => res >= x && res >= y && (res == x || res == y))
-
-  def _isPrefix(l1: ListA, l2: ListA): Boolean = {
-    val (ll1, ll2) = unzipAA(zipAA(l1, l2))
-    l1 == ll1 && l1 == ll2
-  }
 
   def _isTotalABool(l: ListA, p: ListABool): Boolean = (l match {
     case NilA        => true
