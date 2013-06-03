@@ -71,6 +71,11 @@ object polylist {
     drop(l, m)
   } ensuring (res => size(res) == _minInt(n, size(l)))
 
+  def splitAt(l: ListA, n: Int): (ListA, ListA) = {
+    require(n >= 0)
+    (take(l, n), drop(l, n))
+  } ensuring (res => size(res._1) + size(res._2) == size(l))
+
   def contains(l: ListA, x: TypeA): Boolean = (l match {
     case NilA        => false
     case ConsA(y, t) => (x == y) || contains(t, x)
@@ -107,9 +112,20 @@ object polylist {
     require(size(l) > 0)
     l match {
       case ConsA(x, NilA) => x
-      case ConsA(x, t)    => last(t)
+      case ConsA(_, t)    => last(t)
     }
   } ensuring (res => contains(l, res) && head(drop(l, size(l) - 1)) == res)
+
+  def lastOption(l: ListA): OptionA = (l match {
+    case NilA           => NoneA
+    case ConsA(x, NilA) => SomeA(x)
+    case ConsA(_, t)    => lastOption(t)
+  }) ensuring (res => (res == NoneA && isEmpty(l)) || (res.isInstanceOf[SomeA] && !isEmpty(l)))
+
+  def init(l: ListA): ListA = {
+    require(size(l) > 0)
+    dropRight(l, 1)
+  } ensuring (res => size(res) + 1 == size(l) && startsWith(l, res))
 
   def prepend(l: ListA, x: TypeA): ListA = {
     ConsA(x, l)
@@ -137,7 +153,7 @@ object polylist {
 
   def indexOf(l: ListA, x: TypeA): Int = (l match {
     case NilA                               => -1
-    case ConsA(y, t) if x == y              => 0
+    case ConsA(y, _) if x == y              => 0
     case ConsA(_, t) if indexOf(t, x) == -1 => -1
     case ConsA(_, t)                        => 1 + indexOf(t, x)
   }) ensuring (res => (res == -1 && !contains(l, x)) || (res >= 0 && res < size(l) && get(l, res) == x))
@@ -153,6 +169,21 @@ object polylist {
       }
     }
   } ensuring (res => (res == -1 && !containsSlice(l1, l2)) ||
+    (res >= 0 && containsSlice(l1, l2) && slice(l1, res, res + size(l2)) == l2))
+
+  def lastIndexOf(l: ListA, x: TypeA): Int = (l match {
+    case NilA => -1
+    case ConsA(y, t) if lastIndexOf(t, x) == -1 && x == y => 0
+    case ConsA(y, t) if lastIndexOf(t, x) == -1 => -1
+    case ConsA(_, t) => 1 + lastIndexOf(t, x)
+  }) ensuring (res => (res == -1 && !contains(l, x)) || (res >= 0 && res < size(l) && get(l, res) == x))
+
+  def lastIndexOfSlice(l1: ListA, l2: ListA): Int = (l1 match {
+    case NilA => if (startsWith(l1, l2)) 0 else -1
+    case ConsA(_, t) if lastIndexOfSlice(t, l2) == -1 && startsWith(l1, l2) => 0
+    case ConsA(_, t) if lastIndexOfSlice(t, l2) == -1 => -1
+    case ConsA(_, t) => 1 + lastIndexOfSlice(t, l2)
+  }) ensuring (res => (res == -1 && !containsSlice(l1, l2)) ||
     (res >= 0 && containsSlice(l1, l2) && slice(l1, res, res + size(l2)) == l2))
 
   def remove(l: ListA, x: TypeA): ListA = (l match {
@@ -238,6 +269,15 @@ object polylist {
   } ensuring (res => size(res._1) + size(res._2) == size(l) && res._1 == filter(l, p) && res._2 == filterNot(l, p)
     && forall(res._1, p) && !exists(res._2, p))
 
+  def prefixLength(l: ListA, p: ListABool): Int = {
+    require(_isTotalABool(l, p))
+    l match {
+      case NilA                     => 0
+      case ConsA(x, t) if get(p, x) => 1 + prefixLength(t, p)
+      case ConsA(_, t)              => 0
+    }
+  } ensuring (res => res <= size(filter(l, p)))
+
   def dropWhile(l: ListA, p: ListABool): ListA = {
     require(_isTotalABool(l, p))
     l match {
@@ -245,7 +285,7 @@ object polylist {
       case ConsA(x, t) if get(p, x) => dropWhile(t, p)
       case _                        => l
     }
-  } ensuring (res => size(res) <= size(l) && (size(l) - size(res)) <= size(filter(l, p)))
+  } ensuring (res => size(res) <= size(l) && prefixLength(l, p) + size(res) == size(l))
 
   def takeWhile(l: ListA, p: ListABool): ListA = {
     require(_isTotalABool(l, p))
@@ -254,7 +294,27 @@ object polylist {
       case ConsA(x, t) if get(p, x) => ConsA(x, takeWhile(t, p))
       case _                        => NilA
     }
-  } ensuring (res => size(res) <= size(filter(l, p)) && startsWith(filter(l, p), res))
+  } ensuring (res => size(res) == prefixLength(l, p) && startsWith(filter(l, p), res))
+
+  def indexWhere(l: ListA, p: ListABool): Int = {
+    require(_isTotalABool(l, p))
+    l match {
+      case NilA                                  => -1
+      case ConsA(x, _) if get(p, x)              => 0
+      case ConsA(_, t) if indexWhere(t, p) == -1 => -1
+      case ConsA(_, t)                           => 1 + indexWhere(t, p)
+    }
+  } ensuring (res => (res == -1 && !exists(l, p)) || (res >= 0 && exists(l, p)))
+
+  def lastIndexWhere(l: ListA, p: ListABool): Int = {
+    require(_isTotalABool(l, p))
+    l match {
+      case NilA => -1
+      case ConsA(x, t) if lastIndexWhere(t, p) == -1 && get(p, x) => 0
+      case ConsA(_, t) if lastIndexWhere(t, p) == -1 => -1
+      case ConsA(_, t) => 1 + lastIndexWhere(t, p)
+    }
+  } ensuring (res => (res == -1 && !exists(l, p)) || (res >= 0 && exists(l, p)))
 
   def map(l: ListA, f: ListAB): ListB = {
     require(_isTotalAB(l, f))
