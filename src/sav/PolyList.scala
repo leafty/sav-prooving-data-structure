@@ -76,6 +76,13 @@ object polylist {
     case ConsA(y, t) => (x == y) || contains(t, x)
   })
 
+  def containsSlice(l1: ListA, l2: ListA): Boolean = {
+    startsWith(l1, l2) || (l1 match {
+      case NilA        => false
+      case ConsA(_, t) => containsSlice(t, l2)
+    })
+  }
+
   def startsWith(l1: ListA, l2: ListA): Boolean = {
     take(l1, size(l2)) == l2
   }
@@ -134,6 +141,19 @@ object polylist {
     case ConsA(_, t) if indexOf(t, x) == -1 => -1
     case ConsA(_, t)                        => 1 + indexOf(t, x)
   }) ensuring (res => (res == -1 && !contains(l, x)) || (res >= 0 && res < size(l) && get(l, res) == x))
+
+  def indexOfSlice(l1: ListA, l2: ListA): Int = {
+    if (startsWith(l1, l2)) {
+      0
+    } else {
+      l1 match {
+        case NilA                                     => -1
+        case ConsA(_, t) if indexOfSlice(t, l2) == -1 => -1
+        case ConsA(_, t)                              => 1 + indexOfSlice(t, l2)
+      }
+    }
+  } ensuring (res => (res == -1 && !containsSlice(l1, l2)) ||
+    (res >= 0 && containsSlice(l1, l2) && slice(l1, res, res + size(l2)) == l2))
 
   def remove(l: ListA, x: TypeA): ListA = (l match {
     case NilA                  => NilA
