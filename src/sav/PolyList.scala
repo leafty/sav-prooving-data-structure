@@ -19,6 +19,11 @@ object polylist {
   case object NilB extends ListB
   case class ConsB(hd: TypeB, tl: ListB) extends ListB
 
+  def contents(l: ListA): Set[TypeA] = (l match {
+    case NilA        => Set()
+    case ConsA(x, t) => Set(x) ++ contents(t)
+  })
+
   def size(l: ListA): Int = (l match {
     case NilA        => 0
     case ConsA(_, t) => 1 + size(t)
@@ -47,39 +52,65 @@ object polylist {
       case ConsA(x, t) if n > 0 => drop(t, n - 1)
       case _                    => l
     }
-  } ensuring (res => size(res) == _maxInt(0, size(l) - n))
+  } ensuring (res => size(res) == _maxInt(0, size(l) - n) && contents(res).subsetOf(contents(l)))
 
   def dropRight(l: ListA, n: Int): ListA = {
     require(n >= 0)
     val s = size(l)
     val m = _maxInt(s - n, 0)
     take(l, m)
-  } ensuring (res => size(res) == _maxInt(0, size(l) - n))
+  } ensuring (res => size(res) == _maxInt(0, size(l) - n) && contents(res).subsetOf(contents(l)))
 
   def take(l: ListA, n: Int): ListA = {
     require(n >= 0)
     l match {
       case ConsA(x, t) if n > 0 => ConsA(x, take(t, n - 1))
-      case _Int                 => NilA
+      case _                    => NilA
     }
-  } ensuring (res => size(res) == _minInt(n, size(l)))
+  } ensuring (res => size(res) == _minInt(n, size(l)) && contents(res).subsetOf(contents(l)))
 
   def takeRight(l: ListA, n: Int): ListA = {
     require(n >= 0)
     val s = size(l)
     val m = _maxInt(s - n, 0)
     drop(l, m)
-  } ensuring (res => size(res) == _minInt(n, size(l)))
+  } ensuring (res => size(res) == _minInt(n, size(l)) && contents(res).subsetOf(contents(l)))
 
   def splitAt(l: ListA, n: Int): (ListA, ListA) = {
     require(n >= 0)
-    (take(l, n), drop(l, n))
-  } ensuring (res => size(res._1) + size(res._2) == size(l))
+    l match {
+      case ConsA(x, t) if n > 0 =>
+        val (l1, l2) = splitAt(t, n - 1)
+        (ConsA(x, l1), l2)
+      case _ => (NilA, l)
+    }
+  } ensuring (res => size(res._1) + size(res._2) == size(l) && res._1 == take(l, n) && res._2 == drop(l, n) &&
+    concat(res._1, res._2) == l && contents(res._1) ++ contents(res._2) == contents(l))
+    
+  def lemma_concat_take_drop(l: ListA, n: Int): Boolean = {
+    require(n >= 0)
+    val (l1, l2) = splitAt(l, n)
+    l1 == take(l, n) && l2 == drop(l, n) &&
+    concat(take(l, n), drop(l, n)) == l
+  } holds
+  
+  def lemma_concat_take_drop_right(l: ListA, n: Int): Boolean = {
+    require(n >= 0)
+    val m = _maxInt(size(l) - n, 0)
+    val (l1, l2) = splitAt(l, m)
+    l1 == dropRight(l, n) && l2 == takeRight(l, n) &&
+    concat(dropRight(l, n), takeRight(l, n)) == l
+  } holds
+
+  def slice(l: ListA, n: Int, m: Int): ListA = {
+    require(0 <= n && n <= m)
+    take(drop(l, n), m - n)
+  } ensuring (res => size(res) <= size(l) && contents(res).subsetOf(contents(l)))
 
   def contains(l: ListA, x: TypeA): Boolean = (l match {
     case NilA        => false
     case ConsA(y, t) => (x == y) || contains(t, x)
-  })
+  }) ensuring (res => (res && contents(l).contains(x)) || (!res && !contents(l).contains(x)))
 
   def containsSlice(l1: ListA, l2: ListA): Boolean = {
     startsWith(l1, l2) || (l1 match {
@@ -141,7 +172,15 @@ object polylist {
   def concat(l1: ListA, l2: ListA): ListA = (l1 match {
     case NilA        => l2
     case ConsA(x, t) => ConsA(x, concat(t, l2))
-  }) ensuring (res => size(res) == size(l1) + size(l2) && take(res, size(l1)) == l1 && drop(res, size(l1)) == l2)
+  }) ensuring (res => size(res) == size(l1) + size(l2) && take(res, size(l1)) == l1 && drop(res, size(l1)) == l2 &&
+    contents(res) == contents(l1) ++ contents(l2))
+
+  def padTo(l: ListA, n: Int, x: TypeA): ListA = (l match {
+    case NilA if n > 0        => ConsA(x, padTo(NilA, n - 1, x))
+    case ConsA(y, t) if n > 0 => ConsA(y, padTo(t, n - 1, x))
+    case _                    => l
+  }) ensuring (res => size(res) >= n &&
+    ((size(res) > size(l) && startsWith(res, l) && contents(res) == contents(l) ++ Set(x)) || (res == l)))
 
   def get(l: ListA, n: Int): TypeA = ({
     require(0 <= n && n < size(l))
@@ -190,21 +229,16 @@ object polylist {
     case NilA                  => NilA
     case ConsA(y, t) if x == y => t
     case ConsA(y, t)           => ConsA(y, remove(t, x))
-  }) ensuring (res => (res == l && !contains(l, x)) || (size(res) + 1 == size(l) && contains(l, x)))
+  }) ensuring (res => (res == l && !contains(l, x)) || (size(res) + 1 == size(l) && contains(l, x) && contents(res).subsetOf(contents(l))))
 
   def diff(l1: ListA, l2: ListA): ListA = (l2 match {
     case NilA        => l1
     case ConsA(x, t) => diff(remove(l1, x), t)
-  }) ensuring (res => size(res) <= size(l1) && size(l1) <= size(res) + size(l2))
+  }) ensuring (res => size(res) <= size(l1) && size(l1) <= size(res) + size(l2) && contents(res).subsetOf(contents(l1)))
 
   def intersect(l1: ListA, l2: ListA): ListA = {
     diff(l1, diff(l1, l2))
-  } ensuring (res => size(res) <= size(l1))
-
-  def slice(l: ListA, n: Int, m: Int): ListA = {
-    require(0 <= n && n <= m)
-    take(drop(l, n), m - n)
-  } ensuring (res => size(res) <= size(l))
+  } ensuring (res => size(res) <= size(l1) && contents(res).subsetOf(contents(l1)))
 
   def exists(l: ListA, p: ListABool): Boolean = {
     require(_isTotalABool(l, p))
@@ -238,7 +272,7 @@ object polylist {
       case ConsA(x, t) if get(p, x) => ConsA(x, filter(t, p))
       case ConsA(_, t)              => filter(t, p)
     }
-  } ensuring (res => size(res) <= size(l) && _isTotalABool(res, p) && forall(res, p))
+  } ensuring (res => size(res) <= size(l) && _isTotalABool(res, p) && forall(res, p) && contents(res).subsetOf(contents(l)))
 
   def filterNot(l: ListA, p: ListABool): ListA = {
     require(_isTotalABool(l, p))
@@ -247,7 +281,7 @@ object polylist {
       case ConsA(x, t) if !get(p, x) => ConsA(x, filterNot(t, p))
       case ConsA(_, t)               => filterNot(t, p)
     }
-  } ensuring (res => size(res) <= size(l) && _isTotalABool(res, p) && !exists(res, p))
+  } ensuring (res => size(res) <= size(l) && _isTotalABool(res, p) && !exists(res, p) && contents(res).subsetOf(contents(l)))
 
   def find(l: ListA, p: ListABool): OptionA = {
     require(_isTotalABool(l, p))
@@ -267,7 +301,7 @@ object polylist {
         if (get(p, x)) (ConsA(x, l1), l2) else (l1, ConsA(x, l2))
     }
   } ensuring (res => size(res._1) + size(res._2) == size(l) && res._1 == filter(l, p) && res._2 == filterNot(l, p)
-    && forall(res._1, p) && !exists(res._2, p))
+    && forall(res._1, p) && !exists(res._2, p) && (contents(res._1) ++ contents(res._2)).subsetOf(contents(l)))
 
   def prefixLength(l: ListA, p: ListABool): Int = {
     require(_isTotalABool(l, p))
@@ -285,7 +319,7 @@ object polylist {
       case ConsA(x, t) if get(p, x) => dropWhile(t, p)
       case _                        => l
     }
-  } ensuring (res => size(res) <= size(l) && prefixLength(l, p) + size(res) == size(l))
+  } ensuring (res => size(res) <= size(l) && prefixLength(l, p) + size(res) == size(l) && contents(res).subsetOf(contents(l)))
 
   def takeWhile(l: ListA, p: ListABool): ListA = {
     require(_isTotalABool(l, p))
@@ -294,7 +328,7 @@ object polylist {
       case ConsA(x, t) if get(p, x) => ConsA(x, takeWhile(t, p))
       case _                        => NilA
     }
-  } ensuring (res => size(res) == prefixLength(l, p) && startsWith(filter(l, p), res))
+  } ensuring (res => size(res) == prefixLength(l, p) && startsWith(filter(l, p), res) && contents(res).subsetOf(contents(l)))
 
   def indexWhere(l: ListA, p: ListABool): Int = {
     require(_isTotalABool(l, p))
