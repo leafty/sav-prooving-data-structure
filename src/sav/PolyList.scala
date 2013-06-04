@@ -2,7 +2,7 @@ import leon.Utils._
 
 object polylist {
 
-  case class TypeA(x: Set[Int])
+  case class TypeA(x: Int)
   case class TypeB(x: Map[Int, Boolean])
 
   //
@@ -86,20 +86,20 @@ object polylist {
     }
   } ensuring (res => size(res._1) + size(res._2) == size(l) && res._1 == take(l, n) && res._2 == drop(l, n) &&
     concat(res._1, res._2) == l && contents(res._1) ++ contents(res._2) == contents(l))
-    
+
   def lemma_concat_take_drop(l: ListA, n: Int): Boolean = {
     require(n >= 0)
     val (l1, l2) = splitAt(l, n)
     l1 == take(l, n) && l2 == drop(l, n) &&
-    concat(take(l, n), drop(l, n)) == l
+      concat(take(l, n), drop(l, n)) == l
   } holds
-  
+
   def lemma_concat_take_drop_right(l: ListA, n: Int): Boolean = {
     require(n >= 0)
     val m = _maxInt(size(l) - n, 0)
     val (l1, l2) = splitAt(l, m)
     l1 == dropRight(l, n) && l2 == takeRight(l, n) &&
-    concat(dropRight(l, n), takeRight(l, n)) == l
+      concat(dropRight(l, n), takeRight(l, n)) == l
   } holds
 
   def slice(l: ListA, n: Int, m: Int): ListA = {
@@ -117,7 +117,7 @@ object polylist {
       case NilA        => false
       case ConsA(_, t) => containsSlice(t, l2)
     })
-  }
+  } ensuring (res => !res || contents(l2).subsetOf(contents(l1)))
 
   def startsWith(l1: ListA, l2: ListA): Boolean = {
     take(l1, size(l2)) == l2
@@ -172,7 +172,7 @@ object polylist {
   def concat(l1: ListA, l2: ListA): ListA = (l1 match {
     case NilA        => l2
     case ConsA(x, t) => ConsA(x, concat(t, l2))
-  }) ensuring (res => size(res) == size(l1) + size(l2) && take(res, size(l1)) == l1 && drop(res, size(l1)) == l2 &&
+  }) ensuring (res => size(res) == size(l1) + size(l2) && startsWith(res, l1) && endsWith(res, l2) &&
     contents(res) == contents(l1) ++ contents(l2))
 
   def padTo(l: ListA, n: Int, x: TypeA): ListA = (l match {
