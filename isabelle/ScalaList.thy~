@@ -48,7 +48,7 @@ apply(induct_tac xs)
 apply(auto)
 done
 
-theorem [simp]: "xs isDefinedAt(0) \<longleftrightarrow> xs \<noteq> Nil"
+theorem []: "xs isDefinedAt(0) \<longleftrightarrow> xs \<noteq> Nil"
 apply(induct_tac xs)
 apply(auto)
 done
@@ -148,7 +148,7 @@ apply(induct_tac xs)
 apply(auto)
 done
 
-theorem [simp]: "size(reverse(xs)) = size(xs)"
+theorem []: "size(reverse(xs)) = size(xs)"
 apply(induct_tac xs)
 apply(auto)
 done
@@ -159,12 +159,12 @@ apply(induct_tac xs)
 apply(auto)
 done
 
-theorem [simp]: "reverse(xs ::: (reverse xs) ) = xs ::: (reverse xs)"
+theorem []: "reverse(xs ::: (reverse xs) ) = xs ::: (reverse xs)"
 apply(induct_tac xs)
 apply(auto)
 done
 
-theorem [simp]: "reverse( (reverse xs) ::: xs ) = (reverse xs) ::: xs"
+theorem []: "reverse( (reverse xs) ::: xs ) = (reverse xs) ::: xs"
 apply(induct_tac xs)
 apply(auto)
 done
@@ -199,12 +199,12 @@ apply(induct_tac xs)
 apply(auto)
 done
 
-theorem [simp]: "\<forall>p. \<not>( xs forall(p) ) = xs exists(\<lambda>x. \<not>(p x))"
+theorem []: "\<forall>p. \<not>( xs forall(p) ) = xs exists(\<lambda>x. \<not>(p x))"
 apply(induct_tac xs)
 apply(auto)
 done
 
-theorem [simp]: "\<forall>p. \<not>( xs exists(p) ) = xs forall(\<lambda>x. \<not>(p x))"
+theorem []: "\<forall>p. \<not>( xs exists(p) ) = xs forall(\<lambda>x. \<not>(p x))"
 apply(induct_tac xs)
 apply(auto)
 done
@@ -217,7 +217,7 @@ primrec contains :: "'a List \<Rightarrow> 'a \<Rightarrow> Boolean" (infix "con
 "      Nil contains(elem) = False" |
 "(x :: xs) contains(elem) = ( (x = elem) \<or> ( xs contains(elem) ) )"
 
-theorem [simp]: "\<forall>elem. xs contains(elem) = xs exists(\<lambda>a. a = elem)"
+theorem []: "\<forall>elem. xs contains(elem) = xs exists(\<lambda>a. a = elem)"
 apply(induct_tac xs)
 apply(auto)
 done
@@ -255,7 +255,7 @@ apply(induct_tac xs)
 apply(auto)
 done
 
-theorem [simp]: "\<forall>p. size(xs filter p) = xs count(p)"
+theorem []: "\<forall>p. size(xs filter p) = xs count(p)"
 apply(induct_tac xs)
 apply(auto)
 done
@@ -278,7 +278,7 @@ apply(induct_tac xs)
 apply(auto)
 done
 
-theorem [simp]: "\<forall>p. size(xs filterNot(p)) = xs count(\<lambda>x. \<not> p x)"
+theorem []: "\<forall>p. size(xs filterNot(p)) = xs count(\<lambda>x. \<not> p x)"
 apply(induct_tac xs)
 apply(auto)
 done
@@ -291,7 +291,7 @@ primrec headOption :: "'a List \<Rightarrow> 'a Option" where
 "headOption(Nil)     = None" |
 "headOption(x :: xs) = Some(x)"
 
-lemma [simp]: "headOption(xs) = None \<longleftrightarrow> xs = Nil"
+lemma []: "headOption(xs) = None \<longleftrightarrow> xs = Nil"
 apply(case_tac xs)
 apply(auto)
 done
@@ -307,7 +307,7 @@ primrec lastOption :: "'a List \<Rightarrow> 'a Option" where
 "lastOption(Nil)     = None" |
 "lastOption(x :: xs) = Some(lastOption_rec xs x)"
 
-lemma [simp]: "lastOption(xs) = None \<longleftrightarrow> xs = Nil"
+lemma []: "lastOption(xs) = None \<longleftrightarrow> xs = Nil"
 apply(case_tac xs)
 apply(auto)
 done
@@ -322,7 +322,7 @@ apply(case_tac xs)
 apply(auto)
 done
 
-theorem [simp]: "lastOption(reverse(xs)) = headOption(xs)"
+theorem []: "lastOption(reverse(xs)) = headOption(xs)"
 apply(case_tac xs)
 apply(auto)
 done
@@ -335,7 +335,7 @@ primrec tailOption :: "'a List \<Rightarrow> 'a List Option" where
 "tailOption(Nil)     = None" |
 "tailOption(x :: xs) = Some xs"
 
-theorem [simp]: " \<lbrakk> xs \<noteq> Nil \<rbrakk> \<Longrightarrow> \<exists>ys. tailOption(xs) = Some(ys)"
+theorem []: " \<lbrakk> xs \<noteq> Nil \<rbrakk> \<Longrightarrow> \<exists>ys. tailOption(xs) = Some(ys)"
 apply(case_tac xs)
 apply(auto)
 done
@@ -351,12 +351,12 @@ primrec getOrElse :: "'a List \<Rightarrow> nat \<Rightarrow> 'a \<Rightarrow> '
 "getOrElse       Nil n e = e" |
 "getOrElse (x :: xs) n e = (case n of 0 \<Rightarrow> x | Suc n1 \<Rightarrow> getOrElse xs n1 e )"
 
-lemma [simp]: "\<forall>e. getOrElse Nil n e = e"
+lemma []: "\<forall>e. getOrElse Nil n e = e"
 apply(induct_tac n)
 apply(auto)
 done
 
-lemma [simp]: "\<forall>e. getOrElse xs (size xs) e = e"
+lemma []: "\<forall>e. getOrElse xs (size xs) e = e"
 apply(induct_tac xs)
 apply(auto)
 done
@@ -374,7 +374,7 @@ apply(case_tac xs)
 apply(auto)
 done
 
-lemma [simp]: "xs drop(size xs) = Nil"
+lemma []: "xs drop(size xs) = Nil"
 apply(induct_tac xs)
 apply(auto)
 done
@@ -387,7 +387,7 @@ primrec take :: "'a List \<Rightarrow> nat \<Rightarrow> 'a List" (infix "take" 
 "      Nil take(n) = Nil" |
 "(x :: xs) take(n) = ( case n of 0 \<Rightarrow> Nil | Suc m \<Rightarrow> x :: (xs take(m)) )"
 
-lemma [simp]: "xs take(0) = Nil"
+lemma []: "xs take(0) = Nil"
 apply(induct_tac xs)
 apply(auto)
 done
@@ -404,17 +404,17 @@ primrec slice :: "'a List \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 'a L
 "slice       Nil a b = Nil" |
 "slice (x :: xs) a b =  ( (x :: xs) take(b) ) drop(a)"
 
-lemma [simp]: "\<forall>b. slice xs 0 b = xs take(b)"
+lemma []: "\<forall>b. slice xs 0 b = xs take(b)"
 apply(case_tac xs)
 apply(auto)
 done
 
-lemma [simp]: "slice xs 0 (size xs) = xs"
+lemma []: "slice xs 0 (size xs) = xs"
 apply(case_tac xs)
 apply(auto)
 done
 
-lemma [simp]: "\<forall>n. slice xs n (size xs) = xs drop n"
+lemma []: "\<forall>n. slice xs n (size xs) = xs drop n"
 apply(induct_tac xs)
 apply(auto)
 done
@@ -427,7 +427,7 @@ primrec find :: "'a List \<Rightarrow> ('a \<Rightarrow> Boolean) \<Rightarrow> 
 "      Nil find(p) = None" |
 "(x :: xs) find(p) = (if (p x) then Some x else xs find(p) )"
 
-lemma [simp]: "\<forall>p. (xs find(p) = None) = xs forall(\<lambda>x. \<not>(p x))"
+lemma []: "\<forall>p. (xs find(p) = None) = xs forall(\<lambda>x. \<not>(p x))"
 apply(induct_tac xs)
 apply(auto)
 done
@@ -450,7 +450,7 @@ primrec map :: "'a List \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> 'b Lis
 "      Nil map(_) = Nil" |
 "(x :: xs) map(f) = (f x) :: (xs map(f))"
 
-lemma [simp]: "\<forall>p. size (xs map(p)) = size xs"
+lemma []: "\<forall>p. size (xs map(p)) = size xs"
 apply(induct_tac xs)
 apply(auto)
 done
@@ -466,7 +466,7 @@ primrec mapConverse :: "'a List \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow
 "      Nil mapConverse(f) = Nil" |
 "(x :: xs) mapConverse(f) = (f x) :: (xs mapConverse(f))"
 
-lemma [simp]: "\<forall>p. size (xs mapConverse(p)) = size xs"
+lemma []: "\<forall>p. size (xs mapConverse(p)) = size xs"
 apply(induct_tac xs)
 apply(auto)
 done
@@ -487,7 +487,7 @@ primrec collect :: "'a List \<Rightarrow> (('a, 'b) PartialFunction) \<Rightarro
 "      Nil collect(_) = Nil" |
 "(x :: xs) collect(pf) = ( if pf isDefAt x then (pf apply x) :: ( xs collect(pf)) else ( xs collect(pf)) )"
 
-lemma [simp]: "\<forall>pf. size (xs collect(pf)) = size (xs filter (\<lambda>p. pf isDefAt p))"
+lemma []: "\<forall>pf. size (xs collect(pf)) = size (xs filter (\<lambda>p. pf isDefAt p))"
 apply(induct_tac xs)
 apply(auto)
 done
@@ -497,7 +497,7 @@ apply(induct_tac xs)
 apply(auto)
 done
 
-theorem [simp]: "\<forall>pf. xs collect(pf) =  (xs filter (\<lambda>p. pf isDefAt p)) map(\<lambda>p. pf apply p)"
+theorem []: "\<forall>pf. xs collect(pf) =  (xs filter (\<lambda>p. pf isDefAt p)) map(\<lambda>p. pf apply p)"
 apply(induct_tac xs)
 apply(auto)
 done
@@ -519,7 +519,7 @@ apply(induct_tac xs)
 apply(auto)
 done
 
-lemma [simp]: "\<forall>pf. headOption(xs collect(pf)) = xs collectFirst(pf)"
+lemma []: "\<forall>pf. headOption(xs collect(pf)) = xs collectFirst(pf)"
 apply(induct_tac xs)
 apply(auto)
 done
@@ -599,17 +599,17 @@ apply(induct_tac xs)
 apply(auto)
 done
 
-lemma [simp]: "(distinct xs) contains(x) = xs contains(x)"
+lemma []: "(distinct xs) contains(x) = xs contains(x)"
 apply(induct_tac xs)
 apply(auto)
 done
 
-lemma [simp]: "\<forall>x. distinct(x :: (distinct xs)) = distinct(x::xs)"
+lemma []: "\<forall>x. distinct(x :: (distinct xs)) = distinct(x::xs)"
 apply(induct_tac xs)
 apply(auto)
 done
 
-lemma [simp]: "\<forall>ys. distinct(xs ::: (distinct ys)) = distinct(xs ::: ys)"
+lemma []: "\<forall>ys. distinct(xs ::: (distinct ys)) = distinct(xs ::: ys)"
 apply(induct_tac xs)
 apply(auto)
 done
@@ -632,16 +632,16 @@ primrec minBy :: "'a List \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> Boole
 "      Nil minBy(ord) = None" |
 "(x :: xs) minBy(ord) = Some(minBy_helper (x :: xs) ord x)" 
 
-lemma [simp]: "\<forall>ord. (xs minBy(ord) = None) = (xs = Nil)"
+lemma []: "\<forall>ord. (xs minBy(ord) = None) = (xs = Nil)"
 apply(induct_tac xs)
 apply(auto)
 done
 
-lemma [simp]: "\<lbrakk> xs = y :: ys \<rbrakk> \<Longrightarrow> \<forall>ord. \<exists>x. xs minBy(ord) = Some(x)"
+lemma []: "\<lbrakk> xs = y :: ys \<rbrakk> \<Longrightarrow> \<forall>ord. \<exists>x. xs minBy(ord) = Some(x)"
 apply(auto)
 done
 
-lemma [simp]: "\<lbrakk> \<forall>ord a. ord a a \<rbrakk> \<Longrightarrow> \<forall>ord a. ord (minBy_helper xs ord a) a = True"
+lemma []: "\<lbrakk> \<forall>ord a. ord a a \<rbrakk> \<Longrightarrow> \<forall>ord a. ord (minBy_helper xs ord a) a = True"
 apply(induct_tac xs)
 apply(auto)
 done
@@ -668,16 +668,16 @@ primrec maxBy :: "'a List \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> Boole
 "      Nil maxBy(ord) = None" |
 "(x :: xs) maxBy(ord) = Some(maxBy_helper (x :: xs) ord x)" 
 
-lemma [simp]: "(xs maxBy(ord) = None) = (xs = Nil)"
+lemma []: "(xs maxBy(ord) = None) = (xs = Nil)"
 apply(induct_tac xs)
 apply(auto)
 done
 
-lemma [simp]: "\<lbrakk> xs = y :: ys \<rbrakk> \<Longrightarrow> \<forall>ord. \<exists>x. xs maxBy(ord) = Some(x)"
+lemma []: "\<lbrakk> xs = y :: ys \<rbrakk> \<Longrightarrow> \<forall>ord. \<exists>x. xs maxBy(ord) = Some(x)"
 apply(auto)
 done
 
-lemma [simp]: "\<lbrakk> \<forall>ord a. ord a a \<rbrakk> \<Longrightarrow> \<forall>ord a. ord (maxBy_helper xs ord a) a = True  "
+lemma []: "\<lbrakk> \<forall>ord a. ord a a \<rbrakk> \<Longrightarrow> \<forall>ord a. ord (maxBy_helper xs ord a) a = True  "
 apply(induct_tac xs)
 apply(auto)
 done
