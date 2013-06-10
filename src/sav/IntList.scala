@@ -129,7 +129,7 @@ object obj {
   def min(l: IntList): Int = {
     require(size(l) > 0)
     l match {
-      case Cons(x, t) => _min1(t, x)
+      case Cons(x, t) => _minrec(t, x)
       case Nil        => 0 // avoid match warning
     }
   } ensuring (res => _isLowerBound(l, res) && contains(l, res))
@@ -287,7 +287,7 @@ object obj {
   })
 
   def _isPrefix(l1: IntList, l2: IntList): Boolean = {
-    val (ll1, ll2) = unzip(zip(l1, l2))
+    val (ll1, ll2) = _unzip(zip(l1, l2))
     l1 == ll1 && l1 == ll2
   }
 
@@ -322,17 +322,17 @@ object obj {
     case (Cons(x1, t1), Cons(x2, t2)) => ConsIntIntMap((x1, x2), zip(t1, t2))
   }) ensuring (res => size2(res) == _minInt(size(l1), size(l2)))
 
-  def zipWithAll(l1: IntList, l2: IntList, x1: Int, x2: Int): IntIntMap = ((l1, l2) match {
+  def zipAll(l1: IntList, l2: IntList, x1: Int, x2: Int): IntIntMap = ((l1, l2) match {
     case (Nil, Nil)                   => NilIntIntMap
-    case (Cons(y1, t1), Nil)          => ConsIntIntMap((y1, x2), zipWithAll(t1, Nil, x1, x2))
-    case (Nil, Cons(y2, t2))          => ConsIntIntMap((x1, y2), zipWithAll(Nil, t2, x1, x2))
-    case (Cons(y1, t1), Cons(y2, t2)) => ConsIntIntMap((y1, y2), zipWithAll(t1, t2, x1, x2))
+    case (Cons(y1, t1), Nil)          => ConsIntIntMap((y1, x2), zipAll(t1, Nil, x1, x2))
+    case (Nil, Cons(y2, t2))          => ConsIntIntMap((x1, y2), zipAll(Nil, t2, x1, x2))
+    case (Cons(y1, t1), Cons(y2, t2)) => ConsIntIntMap((y1, y2), zipAll(t1, t2, x1, x2))
   }) ensuring (res => size2(res) == _maxInt(size(l1), size(l2)))
 
-  def unzip(l: IntIntMap): (IntList, IntList) = (l match {
+  def _unzip(l: IntIntMap): (IntList, IntList) = (l match {
     case NilIntIntMap => (Nil, Nil)
     case ConsIntIntMap((x1, x2), t) =>
-      val (t1, t2) = unzip(t)
+      val (t1, t2) = _unzip(t)
       (Cons(x1, t1), Cons(x2, t2))
   }) ensuring (res => size(res._1) == size2(l) && size(res._2) == size2(l))
 
@@ -342,10 +342,10 @@ object obj {
     case Cons(_, t)          => _isLowerBound(t, x)
   })
 
-  def _min1(l: IntList, x: Int): Int = (l match {
+  def _minrec(l: IntList, x: Int): Int = (l match {
     case Nil                 => x
-    case Cons(y, t) if y < x => _min1(t, y)
-    case Cons(_, t)          => _min1(t, x)
+    case Cons(y, t) if y < x => _minrec(t, y)
+    case Cons(_, t)          => _minrec(t, x)
   }) ensuring (res => _isLowerBound(l, res) && res <= x && (res == x || contains(l, res)))
 
 }
