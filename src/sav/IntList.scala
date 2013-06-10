@@ -1,6 +1,6 @@
 import leon.Utils._
 
-object obj {
+object intlist {
 
   //
   // INT LIST
